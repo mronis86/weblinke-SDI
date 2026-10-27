@@ -34,13 +34,13 @@ class ControlApi {
  public:
   struct Config {
     std::string httpBind = "127.0.0.1";
-    int httpPort = 7654;
+    int httpPort = 7655;
     /// Required on every HTTP request when set. Empty means no check, which is
     /// only reasonable on loopback.
     std::string httpToken;
     bool oscEnabled = true;
     std::string oscBind = "0.0.0.0";
-    int oscPort = 7655;
+    int oscPort = 7656;
     /// Address prefix, so several instances can share a network.
     std::string oscPrefix = "/weblinked";
     /// Where the settings page saves to and reloads from. Empty means the

@@ -696,7 +696,10 @@ else()
                  PROPERTY OBJECT_DEPENDS "${WEBLINKED_MANIFEST_PATH}")
   endif()
   add_executable(weblinked ${WEBLINKED_APP_SOURCES})
-  set_target_properties(weblinked PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON)
+  set_target_properties(weblinked PROPERTIES
+    CXX_STANDARD 20
+    CXX_STANDARD_REQUIRED ON
+    OUTPUT_NAME "sinor-weblinked")
   target_link_libraries(weblinked PRIVATE weblinked_engine libcef_lib)
 
   if(WIN32)

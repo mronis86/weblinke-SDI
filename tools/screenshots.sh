@@ -26,7 +26,7 @@ APP="$ROOT/build/Release/WebLinked.app/Contents/MacOS/WebLinked"
 CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 NDI_INC="/Library/NDI SDK for Apple/include"
 NDI_LIB="/Library/NDI SDK for Apple/lib/macOS/libndi.dylib"
-PORT=7654
+PORT=7655
 SOURCE_NAME="WebLinkedShots"
 CLOCK_NAME="WebLinkedShotsClock"
 

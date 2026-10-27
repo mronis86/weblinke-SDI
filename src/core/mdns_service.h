@@ -25,7 +25,7 @@ inline constexpr const char* kServiceType = "_weblinked._tcp";
 struct Advertisement {
   std::string instanceName;
   std::string serviceType = kServiceType;
-  uint16_t port = 7654;
+  uint16_t port = 7655;
   TxtRecords txt;
 };
 
@@ -40,10 +40,10 @@ struct TxtInputs {
   std::string name;        ///< human-facing instance name
   std::string version;     ///< WEBLINKED_VERSION
   std::string id;          ///< stable across restarts, unique on the host
-  uint16_t httpPort = 7654;
+  uint16_t httpPort = 7655;
   bool tokenRequired = false;
   bool oscEnabled = true;
-  uint16_t oscPort = 7655;
+  uint16_t oscPort = 7656;
   std::string oscPrefix = "/weblinked";
 };
 
@@ -51,7 +51,7 @@ struct TxtInputs {
 ///
 /// `oscport` and `oscprefix` are the reason this is worth doing at all: nothing
 /// in `/api/state` reports either, so a fleet controller that finds an instance
-/// over HTTP still has to *assume* 7655 and the default prefix. rookery shipped
+  /// over HTTP still has to *assume* 7656 and the default prefix. rookery shipped
 /// with exactly that assumption, shown to the operator as an assumption. A
 /// custom prefix silently breaks every address sent to it.
 TxtRecords buildTxt(const TxtInputs& inputs);

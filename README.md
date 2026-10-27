@@ -295,8 +295,8 @@ just the one thing to install.
 
 ## Control
 
-The control page is served at `http://127.0.0.1:7654/`, so a phone on the same
-network is a remote panel.
+The control page is served at `http://127.0.0.1:7655/` (Sinor default; stock
+WebLinked uses 7654), so a phone on the same network is a remote panel.
 
 ### It finds itself
 
@@ -321,19 +321,19 @@ avahi-browse -r _weblinked._tcp    # Linux
 ```
 
 ```bash
-curl -X POST -d '{"url":"https://example.com/next"}' http://127.0.0.1:7654/api/url
-curl -X POST -d '{"ignore_cache":true}'              http://127.0.0.1:7654/api/reload
-curl -X POST -d '{"name":"Graphic","enabled":false}' http://127.0.0.1:7654/api/output
+curl -X POST -d '{"url":"https://example.com/next"}' http://127.0.0.1:7655/api/url
+curl -X POST -d '{"ignore_cache":true}'              http://127.0.0.1:7655/api/reload
+curl -X POST -d '{"name":"Graphic","enabled":false}' http://127.0.0.1:7655/api/output
 # Click at the centre of the page, in normalised coordinates
-curl -X POST -d '{"type":"down","nx":0.5,"ny":0.5}'  http://127.0.0.1:7654/api/input
+curl -X POST -d '{"type":"down","nx":0.5,"ny":0.5}'  http://127.0.0.1:7655/api/input
 
 # With several sources, ?source= picks one; without it you get the first
-curl http://127.0.0.1:7654/api/sources
+curl http://127.0.0.1:7655/api/sources
 curl -X POST -d '{"url":"https://example.com/next"}' \
-     'http://127.0.0.1:7654/api/url?source=lower-third'
+     'http://127.0.0.1:7655/api/url?source=lower-third'
 ```
 
-Over OSC, on port 7655 — the shape a Companion button sends:
+Over OSC, on port 7656 — the shape a Companion button sends:
 
 ```
 /weblinked/url          "https://example.com/next"

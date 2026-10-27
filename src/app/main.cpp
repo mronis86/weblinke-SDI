@@ -235,10 +235,10 @@ Outputs (repeatable; without any, only the preview runs)
   --no-preview             Do not run the preview output (the control page needs it)
 
 Control
-  --port <n>               HTTP control port. Default: 7654
+  --port <n>               HTTP control port. Default: 7655
   --bind <addr>            HTTP bind address. Default: 127.0.0.1
   --token <secret>         Require this token on every HTTP request
-  --osc-port <n>           OSC listen port. Default: 7655
+  --osc-port <n>           OSC listen port. Default: 7656
   --no-osc                 Do not listen for OSC
   --name <text>            Name to advertise this instance under. Default: the
                            host name and control port
@@ -674,7 +674,7 @@ void ensurePreview(Options& options) {
 /// Comparing against the defaults is how "not given" is detected for the flags
 /// that have no `given` bit.
 void applyControlFromConfig(Options& options, const AppConfig& file) {
-  if (options.control.httpPort == 7654) {
+  if (options.control.httpPort == 7655) {
     options.control.httpPort = file.httpPort;
   }
   if (options.control.httpBind == "127.0.0.1") {
@@ -683,7 +683,7 @@ void applyControlFromConfig(Options& options, const AppConfig& file) {
   if (options.control.httpToken.empty()) {
     options.control.httpToken = file.httpToken;
   }
-  if (options.control.oscPort == 7655) {
+  if (options.control.oscPort == 7656) {
     options.control.oscPort = file.oscPort;
   }
   if (options.control.oscBind == "0.0.0.0") {

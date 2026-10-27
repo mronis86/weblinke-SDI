@@ -139,11 +139,11 @@ struct SourceConfig {
 struct AppConfig {
   std::vector<SourceConfig> sources;
   std::string httpBind = "127.0.0.1";
-  int httpPort = 7654;
+  int httpPort = 7655;
   std::string httpToken;
   bool oscEnabled = true;
   std::string oscBind = "0.0.0.0";
-  int oscPort = 7655;
+  int oscPort = 7656;
   /// Advertise the control API over mDNS. See ControlApi::Config.
   bool mdnsEnabled = true;
   /// Advertised name. Empty means host name and control port.
