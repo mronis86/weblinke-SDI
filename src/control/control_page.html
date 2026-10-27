@@ -170,10 +170,13 @@
   #preview-overlay .bar .spacer, #view-preview .bar .spacer { flex: 1; }
   #preview-slot, #overlay-slot, #pop-slot {
     flex: 1; min-height: 0; display: flex;
+    align-items: center; justify-content: center;
   }
+  /* Keep the painted frame letterboxed (contain) inside the slot. Hit-testing
+     maps through that content rect — see eventPosition — so do not stretch. */
   #preview-overlay canvas, #view-preview canvas {
     width: 100%; height: 100%; max-height: none; aspect-ratio: auto;
-    object-fit: contain;
+    object-fit: contain; object-position: center center;
   }
   #view-preview {
     display: flex; flex-direction: column; min-height: calc(100vh - 58px);
@@ -1352,10 +1355,24 @@ if (interactivePop) {
 }
 
 function eventPosition(e) {
+  // Map pointer → normalised page coords through the *painted* frame, not the
+  // CSS box. With object-fit:contain the bitmap is letterboxed inside the
+  // element; using the full box made enlarged-preview hits drift (often far
+  // sideways) relative to the cursor, especially under DPI / non-16:9 slots.
   const box = canvas.getBoundingClientRect();
+  const bw = canvas.width || 0;
+  const bh = canvas.height || 0;
+  if (!bw || !bh || box.width <= 0 || box.height <= 0) {
+    return { nx: 0, ny: 0 };
+  }
+  const scale = Math.min(box.width / bw, box.height / bh);
+  const contentW = bw * scale;
+  const contentH = bh * scale;
+  const offsetX = (box.width - contentW) / 2;
+  const offsetY = (box.height - contentH) / 2;
   return {
-    nx: Math.min(1, Math.max(0, (e.clientX - box.left) / box.width)),
-    ny: Math.min(1, Math.max(0, (e.clientY - box.top) / box.height)),
+    nx: Math.min(1, Math.max(0, (e.clientX - box.left - offsetX) / contentW)),
+    ny: Math.min(1, Math.max(0, (e.clientY - box.top - offsetY) / contentH)),
   };
 }
 function modifiersOf(e) {

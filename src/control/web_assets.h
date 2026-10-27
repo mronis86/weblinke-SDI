@@ -181,21 +181,24 @@ inline constexpr char kControlPage_0[] = R"WEBLINKED(<!doctype html>
   #preview-overlay .bar .spacer, #view-preview .bar .spacer { flex: 1; }
   #preview-slot, #overlay-slot, #pop-slot {
     flex: 1; min-height: 0; display: flex;
+    align-items: center; justify-content: center;
   }
+  /* Keep the painted frame letterboxed (contain) inside the slot. Hit-testing
+     maps through that content rect — see eventPosition — so do not stretch. */
   #preview-overlay canvas, #view-preview canvas {
     width: 100%; height: 100%; max-height: none; aspect-ratio: auto;
-    object-fit: contain;
+    object-fit: contain; object-position: center center;
   }
   #view-preview {
     display: flex; flex-direction: column; min-height: calc(100vh - 58px);
-    padding: 12px 16px 16px;
+)WEBLINKED";
+inline constexpr char kControlPage_1[] = R"WEBLINKED(    padding: 12px 16px 16px;
   }
   #view-preview[hidden] { display: none; }
   #toast {
     position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
     background: var(--panel-2); border: 1px solid var(--line); color: var(--text);
-)WEBLINKED";
-inline constexpr char kControlPage_1[] = R"WEBLINKED(    padding: 9px 14px; border-radius: 8px; font-size: 12px; opacity: 0;
+    padding: 9px 14px; border-radius: 8px; font-size: 12px; opacity: 0;
     transition: opacity .2s; pointer-events: none; max-width: 80vw; z-index: 20;
   }
   #toast.show { opacity: 1; }
@@ -391,15 +394,15 @@ inline constexpr char kControlPage_1[] = R"WEBLINKED(    padding: 9px 14px; bord
         <label for="set-popups">Links that want a new tab</label>
         <select id="set-popups">
           <option value="navigate">Load here</option>
-          <option value="block">Block</option>
+)WEBLINKED";
+inline constexpr char kControlPage_2[] = R"WEBLINKED(          <option value="block">Block</option>
         </select>
       </div>
       <label class="check">
         <input type="checkbox" id="set-interactive">
         Arm click-the-page when this page loads
       </label>
-)WEBLINKED";
-inline constexpr char kControlPage_2[] = R"WEBLINKED(      <p class="note">Preview quality (how sharp this control picture is) lives on Live. It does not change SDI or NDI.</p>
+      <p class="note">Preview quality (how sharp this control picture is) lives on Live. It does not change SDI or NDI.</p>
       <div class="buttons">
         <button class="primary" id="apply-settings">Apply</button>
       </div>
@@ -637,7 +640,8 @@ function syncFormatControls(text) {
 
 function definitions(target, pairs) {
   target.innerHTML = pairs
-    .map(([key, value]) => '<dt>' + key + '</dt><dd>' + value + '</dd>')
+)WEBLINKED";
+inline constexpr char kControlPage_3[] = R"WEBLINKED(    .map(([key, value]) => '<dt>' + key + '</dt><dd>' + value + '</dd>')
     .join('');
 }
 
@@ -647,8 +651,7 @@ let lastState = {};
 function showView(name) {
   view = name;
   for (const button of document.querySelectorAll('nav button[data-view]')) {
-)WEBLINKED";
-inline constexpr char kControlPage_3[] = R"WEBLINKED(    button.classList.toggle('on', button.dataset.view === name);
+    button.classList.toggle('on', button.dataset.view === name);
   }
   for (const id of ['live', 'advanced', 'diagnostics', 'preview']) {
     const el = document.getElementById('view-' + id);
@@ -834,12 +837,12 @@ function destEditorFields(output, kind) {
       '<option value="stretch">Stretch</option></select></div>';
   }
   if (shown.includes('url')) {
-    html += '<div class="field"><label>Stream URL</label><input type="text" data-f="url" spellcheck="false" value="' +
+)WEBLINKED";
+inline constexpr char kControlPage_4[] = R"WEBLINKED(    html += '<div class="field"><label>Stream URL</label><input type="text" data-f="url" spellcheck="false" value="' +
       esc(options.url || '') + '"></div>';
   }
   html += '<div class="field"><label>Background</label><select data-f="background">' +
-)WEBLINKED";
-inline constexpr char kControlPage_4[] = R"WEBLINKED(    '<option value="transparent">Transparent (keep alpha)</option>' +
+    '<option value="transparent">Transparent (keep alpha)</option>' +
     '<option value="colour">Solid colour</option></select></div>';
   html += '<div class="field" data-bg><label>Colour</label><input type="color" data-f="background_colour" value="' +
     esc(output.background_colour || '#00b140') + '"></div></div>';
@@ -996,12 +999,12 @@ function renderAddForm() {
     html += '<div class="field"><label for="add-device">Card</label>' +
       '<input type="number" id="add-device" min="0" value="0"></div>';
     if (kind === 'decklink') {
-      html += '<div class="field"><label for="add-keying">SDI mode</label><select id="add-keying">' +
+)WEBLINKED";
+inline constexpr char kControlPage_5[] = R"WEBLINKED(      html += '<div class="field"><label for="add-keying">SDI mode</label><select id="add-keying">' +
         '<option value="">Fill only</option><option value="external">Key + fill</option>' +
         '<option value="internal">Overlay</option></select></div>';
     }
-)WEBLINKED";
-inline constexpr char kControlPage_5[] = R"WEBLINKED(  } else if (kind === 'screen') {
+  } else if (kind === 'screen') {
     html += '<div class="field"><label for="add-name">Name</label>' +
       '<input type="text" id="add-name" spellcheck="false" placeholder="Screen"></div>';
     html += '<div class="field"><label for="add-display">Monitor</label><select id="add-display">' +
@@ -1202,12 +1205,12 @@ async function pullLog() {
       document.getElementById('log-level').value = data.level || 'info';
       logLevelKnown = true;
     }
-    const follow = document.getElementById('log-follow').checked;
+)WEBLINKED";
+inline constexpr char kControlPage_6[] = R"WEBLINKED(    const follow = document.getElementById('log-follow').checked;
     const atBottom = logView.scrollTop + logView.clientHeight >= logView.scrollHeight - 8;
     logView.innerHTML = (data.lines || []).map((line) => {
       const level = (line.split(' ')[1] || '').toLowerCase();
-)WEBLINKED";
-inline constexpr char kControlPage_6[] = R"WEBLINKED(      return '<div class="' + level + '">' + esc(line) + '</div>';
+      return '<div class="' + level + '">' + esc(line) + '</div>';
     }).join('');
     if (follow && atBottom) logView.scrollTop = logView.scrollHeight;
     definitions(document.getElementById('diag-paths'), [
@@ -1369,10 +1372,24 @@ if (interactivePop) {
 }
 
 function eventPosition(e) {
+  // Map pointer → normalised page coords through the *painted* frame, not the
+  // CSS box. With object-fit:contain the bitmap is letterboxed inside the
+  // element; using the full box made enlarged-preview hits drift (often far
+  // sideways) relative to the cursor, especially under DPI / non-16:9 slots.
   const box = canvas.getBoundingClientRect();
+  const bw = canvas.width || 0;
+  const bh = canvas.height || 0;
+  if (!bw || !bh || box.width <= 0 || box.height <= 0) {
+    return { nx: 0, ny: 0 };
+  }
+  const scale = Math.min(box.width / bw, box.height / bh);
+  const contentW = bw * scale;
+  const contentH = bh * scale;
+  const offsetX = (box.width - contentW) / 2;
+  const offsetY = (box.height - contentH) / 2;
   return {
-    nx: Math.min(1, Math.max(0, (e.clientX - box.left) / box.width)),
-    ny: Math.min(1, Math.max(0, (e.clientY - box.top) / box.height)),
+    nx: Math.min(1, Math.max(0, (e.clientX - box.left - offsetX) / contentW)),
+    ny: Math.min(1, Math.max(0, (e.clientY - box.top - offsetY) / contentH)),
   };
 }
 function modifiersOf(e) {
@@ -1386,7 +1403,8 @@ function modifiersOf(e) {
   if (e.altKey)   m |= 1 << 3;
   if (e.metaKey)  m |= 1 << 7;
   if (e.buttons & 1) m |= 1 << 4;
-  if (e.buttons & 4) m |= 1 << 5;
+)WEBLINKED";
+inline constexpr char kControlPage_7[] = R"WEBLINKED(  if (e.buttons & 4) m |= 1 << 5;
   if (e.buttons & 2) m |= 1 << 6;
   return m;
 }
@@ -1417,8 +1435,7 @@ canvas.addEventListener('mouseleave', (e) => {
 canvas.addEventListener('mousedown', (e) => {
   if (!interactive) return;
   e.preventDefault();
-)WEBLINKED";
-inline constexpr char kControlPage_7[] = R"WEBLINKED(  canvas.focus();
+  canvas.focus();
   sendInput({ type: 'down', ...eventPosition(e), button: e.button, clicks: e.detail || 1, modifiers: modifiersOf(e) });
 });
 canvas.addEventListener('mouseup', (e) => {
@@ -1599,7 +1616,8 @@ document.getElementById('remove-source').addEventListener('click', async () => {
   const id = currentSource;
   if (!id) return;
   if (!confirm("Remove '" + id + "'? Its outputs go off air.")) return;
-  if (await post('/api/sources/remove', { id: id })) {
+)WEBLINKED";
+inline constexpr char kControlPage_8[] = R"WEBLINKED(  if (await post('/api/sources/remove', { id: id })) {
     toast("removed '" + id + "'");
     currentSource = '';
     destEditName = null;
@@ -1624,8 +1642,7 @@ function showNewSource(show) {
     document.getElementById('ns-id').focus();
   }
 }
-)WEBLINKED";
-inline constexpr char kControlPage_8[] = R"WEBLINKED(document.getElementById('add-source').addEventListener('click', () => showNewSource(true));
+document.getElementById('add-source').addEventListener('click', () => showNewSource(true));
 document.getElementById('ns-cancel').addEventListener('click', () => showNewSource(false));
 newSourceForm.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') showNewSource(false);
