@@ -26,3 +26,7 @@ build-release/
 # Plugin build output and probe binaries
 plugin/build/
 plugin/tools/out/
+
+__pycache__/
+*.pyc
+

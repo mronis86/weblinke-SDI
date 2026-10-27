@@ -28,6 +28,12 @@ bool SourceManager::start(const AppConfig& config, const Options& options,
     options_ = options;
   }
 
+  if (config.sources.empty()) {
+    // A cold launch with nothing saved, or an operator who cleared every page.
+    // The control API stays up so they can name the first one.
+    return true;
+  }
+
   std::string firstError;
   size_t started = 0;
   for (const auto& source : config.sources) {

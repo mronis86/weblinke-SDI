@@ -12,15 +12,22 @@
 // Ownership follows COM rules: everything obtained from the API is Release()d,
 // and the completion callback is reference counted independently of this class.
 //
-// UNVERIFIED AGAINST HARDWARE. This compiles against DeckLink SDK 12.2 headers
-// and the API use follows the SDK's documented scheduled-playback sequence, but
-// no DeckLink card has ever been connected to it. See docs/04-verification.md.
+// Verified on macOS against a DeckLink Duo 2 (see docs/04-verification.md).
+// Windows uses COM (CoCreateInstance) rather than DeckLinkAPIDispatch; that
+// path is wired to the SDK's documented entry point but has not yet been run
+// against a card on this platform.
 
+#include <algorithm>
 #include <atomic>
+#include <cstdio>
 #include <cstring>
 #include <mutex>
 #include <string>
 #include <vector>
+
+#if defined(_WIN32)
+#include <objbase.h>
+#endif
 
 #include "DeckLinkAPI.h"
 #include "core/pixel_convert.h"
@@ -83,6 +90,86 @@ void safeRelease(T*& object) {
   }
 }
 
+/// Platform entry point for IDeckLinkIterator.
+///
+/// Windows is native COM: CoCreateInstance(CLSID_CDeckLinkIterator, ...).
+/// macOS and Linux get CreateDeckLinkIteratorInstance() from the SDK's
+/// DeckLinkAPIDispatch.cpp, which dlopens the installed Desktop Video driver.
+IDeckLinkIterator* createDeckLinkIterator() {
+#if defined(_WIN32)
+  IDeckLinkIterator* iterator = nullptr;
+  const HRESULT hr =
+      ::CoCreateInstance(CLSID_CDeckLinkIterator, nullptr, CLSCTX_ALL,
+                         IID_IDeckLinkIterator,
+                         reinterpret_cast<void**>(&iterator));
+  if (hr != S_OK) {
+    return nullptr;
+  }
+  return iterator;
+#else
+  return CreateDeckLinkIteratorInstance();
+#endif
+}
+
+/// SDK 15.3+ moved pixel access off IDeckLinkMutableVideoFrame onto
+/// IDeckLinkVideoBuffer (QueryInterface + StartAccess/GetBytes/EndAccess).
+template <typename Fn>
+bool withFrameBytes(IDeckLinkMutableVideoFrame* frame, Fn&& write) {
+  if (frame == nullptr) {
+    return false;
+  }
+
+  IDeckLinkVideoBuffer* buffer = nullptr;
+  if (frame->QueryInterface(IID_IDeckLinkVideoBuffer,
+                            reinterpret_cast<void**>(&buffer)) != S_OK ||
+      buffer == nullptr) {
+    return false;
+  }
+
+  if (buffer->StartAccess(bmdBufferAccessWrite) != S_OK) {
+    buffer->Release();
+    return false;
+  }
+
+  void* bytes = nullptr;
+  const bool ok = buffer->GetBytes(&bytes) == S_OK && bytes != nullptr;
+  if (ok) {
+    write(bytes, frame->GetRowBytes());
+  }
+  buffer->EndAccess(bmdBufferAccessWrite);
+  buffer->Release();
+  return ok;
+}
+
+#if defined(_WIN32)
+/// COM must be initialised on every thread that touches a DeckLink interface:
+/// start() runs on the control/engine thread, submit() on the clock thread, and
+/// the completion callback arrives on a Desktop Video thread. MTA matches that
+/// fan-out; S_FALSE / RPC_E_CHANGED_MODE mean the apartment is already up.
+thread_local bool tComReady = false;
+
+bool ensureThreadCom(std::string* error) {
+  if (tComReady) {
+    return true;
+  }
+  const HRESULT hr = ::CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+  if (hr == S_OK || hr == S_FALSE || hr == RPC_E_CHANGED_MODE) {
+    // Leave the apartment up for the life of the thread: start/stop can cycle
+    // many times, and CoUninitialize while Desktop Video still holds callbacks
+    // is a worse failure mode than a leaked apartment.
+    tComReady = true;
+    return true;
+  }
+  if (error != nullptr) {
+    char buf[32];
+    std::snprintf(buf, sizeof(buf), "0x%08lx",
+                  static_cast<unsigned long>(hr));
+    *error = std::string("CoInitializeEx failed (") + buf + ")";
+  }
+  return false;
+}
+#endif
+
 /// Notifies us when the card has finished with a frame. We do not recycle
 /// frames from here — each scheduled frame owns its own buffer for its whole
 /// life — but the completion result is the only place the card tells us it is
@@ -136,7 +223,8 @@ class CompletionCallback final : public IDeckLinkVideoOutputCallback {
   }
 
  private:
-  ~CompletionCallback() override = default;
+  // COM destructors are not virtual on IUnknown; do not mark override.
+  ~CompletionCallback() = default;
 
   Counters* counters_;
   std::atomic<ULONG> refCount_{1};
@@ -297,12 +385,20 @@ class DeckLinkOutput final : public IOutput {
     running_ = false;
     scheduledFrames_ = 0;
     scheduledAudioFrames_ = 0;
+    // Leave the thread's COM apartment up: start() may re-open immediately on
+    // this same thread, and submit()'s clock thread manages its own apartment.
   }
 
   void submit(const VideoFrame& video, const AudioBlock& audio) override {
     if (!running_ || output_ == nullptr) {
       return;
     }
+#if defined(_WIN32)
+    // Clock thread: initialise COM the first time we schedule from here.
+    if (!ensureThreadCom(nullptr)) {
+      return;
+    }
+#endif
 
     IDeckLinkMutableVideoFrame* frame = nullptr;
     if (output_->CreateVideoFrame(format_.width, format_.height,
@@ -314,21 +410,25 @@ class DeckLinkOutput final : public IOutput {
       return;
     }
 
-    void* bytes = nullptr;
-    if (frame->GetBytes(&bytes) == S_OK && bytes != nullptr) {
-      const int cardStride = frame->GetRowBytes();
-      const int ourStride = video.rowBytes();
-      if (cardStride == ourStride) {
-        std::memcpy(bytes, video.data(),
-                    static_cast<size_t>(ourStride) * format_.height);
-      } else {
-        // The card is entitled to a wider stride than the picture.
-        for (int y = 0; y < format_.height; ++y) {
-          std::memcpy(static_cast<uint8_t*>(bytes) + static_cast<size_t>(y) * cardStride,
-                      video.data() + static_cast<size_t>(y) * ourStride,
-                      static_cast<size_t>(ourStride));
-        }
-      }
+    if (!withFrameBytes(frame, [&](void* bytes, int cardStride) {
+          const int ourStride = video.rowBytes();
+          if (cardStride == ourStride) {
+            std::memcpy(bytes, video.data(),
+                        static_cast<size_t>(ourStride) * format_.height);
+          } else {
+            // The card is entitled to a wider stride than the picture.
+            for (int y = 0; y < format_.height; ++y) {
+              std::memcpy(
+                  static_cast<uint8_t*>(bytes) +
+                      static_cast<size_t>(y) * cardStride,
+                  video.data() + static_cast<size_t>(y) * ourStride,
+                  static_cast<size_t>(ourStride));
+            }
+          }
+        })) {
+      frame->Release();
+      ++createFailures_;
+      return;
     }
 
     scheduleFrame(frame);
@@ -383,7 +483,13 @@ class DeckLinkOutput final : public IOutput {
   static constexpr BMDTimeScale kTimeScale = 1'000'000;  // microseconds
 
   bool openDevice(std::string& error) {
-    IDeckLinkIterator* iterator = CreateDeckLinkIteratorInstance();
+#if defined(_WIN32)
+    if (!ensureThreadCom(&error)) {
+      return false;
+    }
+#endif
+
+    IDeckLinkIterator* iterator = createDeckLinkIterator();
     if (iterator == nullptr) {
       error = "DeckLink drivers not present (Desktop Video is not installed)";
       return false;
@@ -622,17 +728,21 @@ class DeckLinkOutput final : public IOutput {
       error = "CreateVideoFrame failed while pre-rolling";
       return false;
     }
-    void* bytes = nullptr;
-    if (frame->GetBytes(&bytes) == S_OK && bytes != nullptr) {
-      if (keying_ == Keying::kOff) {
-        fillBlackUyvy(static_cast<uint8_t*>(bytes), frame->GetRowBytes(),
-                      format_.width, format_.height);
-      } else {
-        // Pre-roll a *transparent* frame when keying: opaque black would punch
-        // a black hole in whatever is behind the key for the first few frames.
-        std::memset(bytes, 0,
-                    static_cast<size_t>(frame->GetRowBytes()) * format_.height);
-      }
+    if (!withFrameBytes(frame, [&](void* bytes, int rowBytes) {
+          if (keying_ == Keying::kOff) {
+            fillBlackUyvy(static_cast<uint8_t*>(bytes), rowBytes, format_.width,
+                          format_.height);
+          } else {
+            // Pre-roll a *transparent* frame when keying: opaque black would
+            // punch a black hole in whatever is behind the key for the first
+            // few frames.
+            std::memset(bytes, 0,
+                        static_cast<size_t>(rowBytes) * format_.height);
+          }
+        })) {
+      frame->Release();
+      error = "could not write pre-roll frame buffer";
+      return false;
     }
     scheduleFrame(frame);
     return true;

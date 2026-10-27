@@ -30,6 +30,9 @@
 #include <csignal>
 #include <cstdlib>
 #include <filesystem>
+#include <fstream>
+#include <optional>
+#include <sstream>
 #include <string>
 #include <system_error>
 #include <thread>
@@ -47,9 +50,11 @@
 
 #include "browser/cef_app.h"
 #include "control/control_api.h"
+#include "core/autostart.h"
 #include "core/json.h"
 #include "core/rotated_blit.h"
 #include "core/settings_store.h"
+#include "core/show_file.h"
 #include "core/video_format.h"
 #include "diag/diag.h"
 #include "engine/engine.h"
@@ -132,12 +137,16 @@ struct Options {
   /// installTray().
   bool wantTray = true;
   /// A configuration file describing several sources. Mutually exclusive with
-  /// the per-source flags — see resolveSources().
+  /// the per-source flags — see resolveSources(). Accepts a settings-shaped
+  /// file or a show file (`weblinked_show`) with tabs.
   std::string configPath;
   /// What actually gets started: either the one source the flags describe, or
-  /// every source in --config. Filled in by resolveSources() once parsing and
-  /// the settings file have both had their say.
+  /// every source in --config / the saved settings. Filled in by
+  /// resolveSources() once parsing and the settings file have both had their say.
   AppConfig sources;
+  /// Whole settings file when one loaded. Used to restore every tab on a cold
+  /// start that left the source flags alone — Save already writes them all.
+  std::optional<AppConfig> savedSettings;
 
   /// Which of the above the operator actually typed.
   ///
@@ -263,9 +272,12 @@ Several sources at once
                            own browser, clock and outputs. Cannot be combined
                            with the source flags above — the file replaces
                            them. --port and --token still apply.
-                           The file is the same shape the settings page saves,
-                           so the quickest way to write one is to configure a
-                           source, save, and copy the entry.
+                           Accepts a settings-shaped file (what Save writes) or
+                           a show file (*.weblinked.json) that includes tabs.
+                           Without --config, a settings file with tabs
+                           restores them all when no source flag was typed.
+                           With neither, the process starts with no pages —
+                           name one on the control page.
 
 Backends compiled into this build: )", WEBLINKED_VERSION);
   for (const auto& kind : compiledOutputKinds()) {
@@ -657,8 +669,40 @@ void ensurePreview(Options& options) {
 
 /// Fills in whatever the command line left alone from a saved settings file.
 ///
+/// Lays control-surface fields from a loaded AppConfig onto Options without
+/// undoing an explicit --port / --bind / --token / --no-osc / --no-mdns.
+/// Comparing against the defaults is how "not given" is detected for the flags
+/// that have no `given` bit.
+void applyControlFromConfig(Options& options, const AppConfig& file) {
+  if (options.control.httpPort == 7654) {
+    options.control.httpPort = file.httpPort;
+  }
+  if (options.control.httpBind == "127.0.0.1") {
+    options.control.httpBind = file.httpBind;
+  }
+  if (options.control.httpToken.empty()) {
+    options.control.httpToken = file.httpToken;
+  }
+  if (options.control.oscPort == 7655) {
+    options.control.oscPort = file.oscPort;
+  }
+  if (options.control.oscBind == "0.0.0.0") {
+    options.control.oscBind = file.oscBind;
+  }
+  // --no-osc is a refusal, so it wins either way round.
+  options.control.oscEnabled = options.control.oscEnabled && file.oscEnabled;
+  if (options.control.instanceName.empty()) {
+    options.control.instanceName = file.instanceName;
+  }
+  // --no-mdns is a refusal too, and for the same reason: a network where
+  // multicast is forbidden does not become one where it is allowed because a
+  // config file says so.
+  options.control.mdnsEnabled =
+      options.control.mdnsEnabled && file.mdnsEnabled;
+}
+
 /// Deliberately one-directional: the file never overrides an explicit flag. A
-/// a supervisor passing --port and --headless must not have those undone by
+/// supervisor passing --port and --headless must not have those undone by
 /// whatever the last operator happened to save.
 void applySavedSettings(Options& options) {
   if (!options.useSavedSettings) {
@@ -675,10 +719,17 @@ void applySavedSettings(Options& options) {
     return;
   }
   if (file->sources.empty()) {
-    diag::warn("settings: %s has no sources", path.c_str());
+    options.savedSettings = *file;
+    applyControlFromConfig(options, *file);
+    diag::info("settings: loaded %s (no pages)", path.c_str());
     return;
   }
 
+  options.savedSettings = *file;
+
+  // Fill the single-source Options fields from the first tab so a launch that
+  // also typed --url / --ndi still has gaps filled from the file. When no
+  // source flag was typed, resolveSources() restores every tab instead.
   const SourceConfig& saved = file->sources.front();
   if (!options.given.url) options.url = saved.url;
   if (!options.given.format) options.format = saved.format;
@@ -704,22 +755,60 @@ void applySavedSettings(Options& options) {
   }
   // --no-audio is a refusal, so it wins either way round.
   options.audio = options.audio && saved.audioEnabled;
-  diag::info("settings: loaded %s", path.c_str());
+  diag::info("settings: loaded %s (%zu source%s)", path.c_str(),
+             file->sources.size(), file->sources.size() == 1 ? "" : "s");
 }
 
-/// Decides what actually gets started: one source from the flags, or a whole set
-/// from --config.
+bool sourceFlagsGiven(const Options& options) {
+  return options.given.url || options.given.format || options.given.matrix ||
+         options.given.pacing || options.given.interactive ||
+         options.given.popups || options.given.outputs;
+}
+
+/// Starts every source from a loaded AppConfig (settings or --config).
+void adoptSources(Options& options, AppConfig file) {
+  options.sources = std::move(file);
+  for (auto& source : options.sources.sources) {
+    // The file may leave the preview out; the control page needs one to show
+    // anything, and an operator who cannot see a source cannot fix it.
+    if (options.wantPreview) {
+      source.ensurePreview();
+    }
+  }
+  applyControlFromConfig(options, options.sources);
+}
+
+/// Decides what actually gets started: one source from the flags, every source
+/// in the settings file, or a whole set from --config / a show file.
 ///
-/// The two are deliberately mutually exclusive rather than merged. Merging would
-/// mean answering "which source does a bare --url mean?" for a file that
-/// describes four of them, and every answer to that is a guess the operator
-/// cannot see. Refusing is one line in a terminal; guessing wrong is the wrong
-/// page on air.
+/// Flags and a multi-source file are deliberately mutually exclusive rather
+/// than merged. Merging would mean answering "which source does a bare --url
+/// mean?" for a file that describes four of them, and every answer to that is
+/// a guess the operator cannot see. Refusing is one line in a terminal;
+/// guessing wrong is the wrong page on air.
 ///
 /// Returns false with `error` set if the two were combined or the file will not
 /// load.
 bool resolveSources(Options& options, std::string& error) {
   if (options.configPath.empty()) {
+    // Save writes every open tab. Without a source flag, restore them all —
+    // otherwise relaunch only ever brought the first tab back and the rest of
+    // the show looked lost. With no saved pages and no source flag, start
+    // empty: the operator names a page on the control surface.
+    if (!sourceFlagsGiven(options)) {
+      if (options.savedSettings && !options.savedSettings->sources.empty()) {
+        const size_t count = options.savedSettings->sources.size();
+        adoptSources(options, *options.savedSettings);
+        diag::info("settings: restoring %zu source%s", count,
+                   count == 1 ? "" : "s");
+        return true;
+      }
+      if (options.savedSettings) {
+        applyControlFromConfig(options, *options.savedSettings);
+      }
+      return true;
+    }
+
     SourceConfig source;
     source.id = "main";
     source.url = options.url;
@@ -739,14 +828,13 @@ bool resolveSources(Options& options, std::string& error) {
       source.outputs.push_back(outputConfigFromSpec(spec));
     }
     options.sources.sources.push_back(source);
+    if (options.savedSettings) {
+      applyControlFromConfig(options, *options.savedSettings);
+    }
     return true;
   }
 
-  const bool sourceFlagsGiven = options.given.url || options.given.format ||
-                                options.given.matrix || options.given.pacing ||
-                                options.given.interactive ||
-                                options.given.popups || options.given.outputs;
-  if (sourceFlagsGiven) {
+  if (sourceFlagsGiven(options)) {
     error =
         "--config describes the sources, so it cannot be combined with --url, "
         "--format, --matrix, --pacing, --interactive, --popups or an output "
@@ -754,8 +842,51 @@ bool resolveSources(Options& options, std::string& error) {
     return false;
   }
 
+  std::ifstream stream(options.configPath, std::ios::binary);
+  if (!stream) {
+    error = "cannot open " + options.configPath;
+    return false;
+  }
+  std::ostringstream text;
+  text << stream.rdbuf();
   std::string loadError;
-  const auto file = settings::load(options.configPath, &loadError);
+  const auto root = json::parse(text.str(), &loadError);
+  if (!root) {
+    error = "cannot read " + options.configPath + ": " + loadError;
+    return false;
+  }
+
+  // A show file carried between venues: tabs are required to start cold;
+  // outputs come along when the file has them.
+  if (root->has("weblinked_show")) {
+    AppConfig seed;
+    SourceConfig stub;
+    stub.id = "main";
+    stub.format = options.format;
+    stub.wantPreview = options.wantPreview;
+    stub.ensurePreview();
+    seed.sources.push_back(stub);
+    const show::Parts available = show::present(*root);
+    if (!available.tabs) {
+      error = options.configPath +
+              " is a show without tabs; need tabs to start cold";
+      return false;
+    }
+    std::string recallError;
+    const auto recalled =
+        show::recall(seed, *root, {true, available.outputs}, &recallError);
+    if (!recalled) {
+      error = options.configPath + ": " + recallError;
+      return false;
+    }
+    adoptSources(options, *recalled);
+    diag::info("config: loaded show %s (%zu source%s)",
+               options.configPath.c_str(), options.sources.sources.size(),
+               options.sources.sources.size() == 1 ? "" : "s");
+    return true;
+  }
+
+  const auto file = AppConfig::fromJson(*root, &loadError);
   if (!file) {
     error = "cannot read " + options.configPath + ": " + loadError;
     return false;
@@ -765,43 +896,7 @@ bool resolveSources(Options& options, std::string& error) {
     return false;
   }
 
-  options.sources = *file;
-  for (auto& source : options.sources.sources) {
-    // The file may leave the preview out; the control page needs one to show
-    // anything, and an operator who cannot see a source cannot fix it.
-    if (options.wantPreview) {
-      source.ensurePreview();
-    }
-  }
-  // The control surface belongs to the process, not to a source, so a --port or
-  // --token on the command line still wins over the file — the same rule the
-  // settings file follows. Comparing against the defaults is how "not given" is
-  // detected here; the flags that have a `given` bit use that instead.
-  if (options.control.httpPort == 7654) {
-    options.control.httpPort = options.sources.httpPort;
-  }
-  if (options.control.httpBind == "127.0.0.1") {
-    options.control.httpBind = options.sources.httpBind;
-  }
-  if (options.control.httpToken.empty()) {
-    options.control.httpToken = options.sources.httpToken;
-  }
-  if (options.control.oscPort == 7655) {
-    options.control.oscPort = options.sources.oscPort;
-  }
-  if (options.control.oscBind == "0.0.0.0") {
-    options.control.oscBind = options.sources.oscBind;
-  }
-  // --no-osc is a refusal, so it wins either way round.
-  options.control.oscEnabled = options.control.oscEnabled && options.sources.oscEnabled;
-  if (options.control.instanceName.empty()) {
-    options.control.instanceName = options.sources.instanceName;
-  }
-  // --no-mdns is a refusal too, and for the same reason: a network where
-  // multicast is forbidden does not become one where it is allowed because a
-  // config file says so.
-  options.control.mdnsEnabled =
-      options.control.mdnsEnabled && options.sources.mdnsEnabled;
+  adoptSources(options, *file);
   return true;
 }
 
@@ -1016,6 +1111,15 @@ int main(int argc, char** argv) {
   // installSignalHandlers() below for the same trap.
   diagOptions.installCrashHandler = false;
   weblinked::diag::init(diagOptions);
+
+  // Startup-folder and HKCU Run launches default to System32. Chromium has
+  // already been bitten by that (CHANGELOG v1.0.6); sit next to the exe first.
+  {
+    std::string cwdError;
+    if (!weblinked::autostart::bindWorkingDirectory(&cwdError)) {
+      weblinked::diag::warn("working directory: %s", cwdError.c_str());
+    }
+  }
 
   // After logging is up, so a settings file that will not parse says so
   // somewhere an operator can find it; before the config is recorded, so a

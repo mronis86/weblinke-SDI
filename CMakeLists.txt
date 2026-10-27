@@ -136,6 +136,46 @@ list(APPEND CMAKE_MODULE_PATH "${CEF_ROOT}/cmake")
 set(USE_SANDBOX OFF CACHE BOOL "Link the CEF sandbox library" FORCE)
 
 find_package(CEF REQUIRED)
+
+# CEF 150 pins NTDDI_VERSION=NTDDI_WIN10_FE (Windows 11 SDK). VS 2019 Build
+# Tools often only ship the 10.0.19041 kit, where that macro does not exist —
+# the Windows headers then fail to parse (FILE_INFO_BY_HANDLE_CLASS). Rewrite
+# to a numeric target the installed kit understands when FE is unavailable.
+if(WIN32 AND DEFINED CEF_COMPILER_DEFINES)
+  set(_weblinked_ntddi_probe
+      "$ENV{WindowsSdkDir}Include/$ENV{WindowsSDKVersion}shared/sdkddkver.h")
+  if(NOT EXISTS "${_weblinked_ntddi_probe}")
+    file(GLOB _weblinked_sdkddkver
+         "C:/Program Files*/Windows Kits/10/Include/*/shared/sdkddkver.h")
+    if(_weblinked_sdkddkver)
+      list(SORT _weblinked_sdkddkver ORDER DESCENDING)
+      list(GET _weblinked_sdkddkver 0 _weblinked_ntddi_probe)
+    endif()
+  endif()
+  set(_weblinked_has_fe FALSE)
+  if(EXISTS "${_weblinked_ntddi_probe}")
+    file(STRINGS "${_weblinked_ntddi_probe}" _weblinked_fe_line
+         REGEX "NTDDI_WIN10_FE" LIMIT_COUNT 1)
+    if(_weblinked_fe_line)
+      set(_weblinked_has_fe TRUE)
+    endif()
+  endif()
+  if(NOT _weblinked_has_fe)
+    message(STATUS
+      "CEF: installed Windows SDK has no NTDDI_WIN10_FE — "
+      "retargeting to 0x0A000008 (19H1/20H1) so headers compile")
+    foreach(_weblinked_defs
+            CEF_COMPILER_DEFINES
+            CEF_COMPILER_DEFINES_DEBUG
+            CEF_COMPILER_DEFINES_RELEASE)
+      if(DEFINED ${_weblinked_defs})
+        list(TRANSFORM ${_weblinked_defs} REPLACE
+             "^NTDDI_VERSION=NTDDI_WIN10_FE$" "NTDDI_VERSION=0x0A000008")
+      endif()
+    endforeach()
+  endif()
+endif()
+
 add_subdirectory("${CEF_ROOT}/libcef_dll" libcef_dll_wrapper)
 
 # Windows and Linux link libcef directly; macOS does not, and must not.
@@ -248,6 +288,8 @@ set(WEBLINKED_CORE_SOURCES
   src/core/source_config.cpp
   src/core/source_config.h
   src/core/settings_store.cpp
+  src/core/autostart.cpp
+  src/core/autostart.h
   src/core/socket_inherit.cpp
   src/core/socket_inherit.h
   src/core/stream_args.cpp
@@ -418,7 +460,7 @@ set_target_properties(weblinked_core PROPERTIES
 if(WIN32)
   # ws2_32 for the sockets; dbghelp for SymInitialize/SymFromAddr, which is how
   # diag.cpp turns a crash backtrace into names rather than bare addresses.
-  target_link_libraries(weblinked_core PUBLIC ws2_32 dbghelp)
+  target_link_libraries(weblinked_core PUBLIC ws2_32 dbghelp advapi32)
 endif()
 if(UNIX)
   target_link_libraries(weblinked_core PUBLIC ${CMAKE_DL_LIBS})
@@ -564,6 +606,19 @@ target_link_libraries(weblinked_engine PUBLIC
 target_compile_options(weblinked_engine PRIVATE
   ${CEF_COMPILER_FLAGS}
   $<$<COMPILE_LANGUAGE:CXX>:${CEF_CXX_COMPILER_FLAGS}>)
+# CEF's *defines* (especially NDEBUG in Release) must match libcef_dll_wrapper.
+# Without them DCHECK_IS_ON() disagrees across TUs and the link fails on
+# RefCountedThreadSafeBase::~RefCountedThreadSafeBase.
+target_compile_definitions(weblinked_engine PRIVATE
+  ${CEF_COMPILER_DEFINES}
+  $<$<CONFIG:Debug>:${CEF_COMPILER_DEFINES_DEBUG}>
+  $<$<CONFIG:Release>:${CEF_COMPILER_DEFINES_RELEASE}>)
+if(MSVC)
+  # CEF builds with exceptions disabled (/EHs- /GR-). MSVC's STL still emits
+  # C4530 when those TUs touch <chrono>/<vector>; keep /WX but silence it.
+  target_compile_options(weblinked_engine PRIVATE /wd4530)
+  target_compile_options(weblinked_core PRIVATE /wd4530)
+endif()
 
 if(WEBLINKED_WITH_NDI)
   target_include_directories(weblinked_engine PRIVATE ${NDI_INCLUDE_DIRS})
@@ -677,6 +732,13 @@ else()
   # /MP, /GR- and the rest of CEF's compiler flags.
   target_compile_options(weblinked PRIVATE
     "$<$<COMPILE_LANGUAGE:CXX>:${CEF_COMPILER_FLAGS};${CEF_CXX_COMPILER_FLAGS}>")
+  target_compile_definitions(weblinked PRIVATE
+    ${CEF_COMPILER_DEFINES}
+    $<$<CONFIG:Debug>:${CEF_COMPILER_DEFINES_DEBUG}>
+    $<$<CONFIG:Release>:${CEF_COMPILER_DEFINES_RELEASE}>)
+  if(MSVC)
+    target_compile_options(weblinked PRIVATE /wd4530)
+  endif()
   target_link_options(weblinked PRIVATE ${CEF_LINKER_FLAGS} ${CEF_EXE_LINKER_FLAGS})
 
   COPY_FILES(weblinked "${CEF_BINARY_FILES}" "${CEF_BINARY_DIR}" "${CEF_TARGET_OUT_DIR}")

@@ -5,7 +5,7 @@ things disagree.
 
 ## The page
 
-`http://127.0.0.1:7654/` → **Settings**. Four groups:
+`http://127.0.0.1:7654/` → **Advanced** (Live is the day-to-day view). Groups:
 
 **Outputs.** One editor per output, showing only the fields that backend
 actually has — an NDI sender gets a name and an alpha checkbox, a DeckLink gets
@@ -29,7 +29,8 @@ shown. Renaming an output must not be able to leave you with no output.
 the preview arms itself on load. **Apply** sends the lot as one request, which
 the engine reconciles: anything that has not actually changed is left running.
 
-**Saved settings.** Where the file is, and Save / Reload.
+**Saved settings.** Where the file is, Save / Reload, and whether the engine
+starts when you log in.
 
 **Show file.** Save and load a show on the operator's own computer, as tabs,
 outputs or both. See [Show files](#show-files).
@@ -77,7 +78,9 @@ somebody would think to back it up.
 It is the same shape `GET /api/settings` returns, so a file can be written by
 hand and what the API gives back can be pasted into one. `sources` is an array
 because the configuration format already allows for several pipelines in one
-process; the engine runs the first.
+process. A cold start with no source flags (`--url`, `--format`, outputs, …)
+restores every entry; a source flag still builds a single pipeline and only
+fills gaps from the first saved tab.
 
 An output with no `background` is transparent, which is what every output did
 before backgrounds existed, so a file written by an older build means exactly
@@ -96,6 +99,23 @@ not been in the machine for a month.
 **The write is atomic.** It goes to `settings.json.tmp` and is renamed over the
 target. An interrupted save costs the *new* settings rather than the old ones;
 losing an edit is recoverable, coming up with an empty output list is not.
+
+## Start at login
+
+The engine is not a Windows service and cannot be one — Chromium, the GPU and
+DeckLink all need an interactive desktop. **Settings → Start with Windows**
+registers a login item instead: the same `weblinked.exe` you would double-click,
+started in the tray, restoring every tab the last Save wrote.
+
+```
+Windows  HKCU\Software\Microsoft\Windows\CurrentVersion\Run\WebLinked
+macOS    ~/Library/LaunchAgents/com.weblinked.engine.plist
+Linux    ~/.config/autostart/weblinked.desktop
+```
+
+After that, a reboot is: log in, then open `http://127.0.0.1:7654/` — no batch
+file. The control page still lives in a browser; the engine is what starts
+itself.
 
 ## Precedence
 
@@ -126,10 +146,14 @@ file describes a whole deployment.
 
 ## Show files
 
-**Settings → Show file** saves the running show to the operator's own computer
-and loads it back through a file picker. Nothing is written on the machine that
-renders, which is usually not the one being sat at. The page offers a name, and
-the download is `<name>.weblinked.json`.
+**Control → Show** (and **Settings → Show file**) saves the running show to the
+operator's own computer and loads it back through a file picker. Nothing is
+written on the machine that renders, which is usually not the one being sat at.
+Control always takes both halves; Settings can tick tabs or outputs alone. The
+page offers a name, and the download is `<name>.weblinked.json`.
+
+`--config` also accepts a show file that includes tabs, so a venue can cold-start
+from a show carried on a stick without first saving settings on the box.
 
 A show has two halves, and each save or load can take either or both:
 

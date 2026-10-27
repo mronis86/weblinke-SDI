@@ -52,7 +52,7 @@ The process-wide endpoints — `/api/log`, `/api/diagnostics*`,
 |---|---|
 | `GET /api/sources` | `{"primary": "<id>", "sources": [ ...state... ]}` — every pipeline, each entry the same shape `/api/state` returns |
 | `POST /api/sources/add` | `{"source": { ...source config... }}`. `409` on a duplicate id, `400` on an invalid one. A preview output is added if the config has none |
-| `POST /api/sources/remove` | `{"id": "..."}`. `409` if it is the only source: a process with no sources has no primary, so removing the last one would make every later request answer 503. Stopping WebLinked is what closing the window is for |
+| `POST /api/sources/remove` | `{"id": "..."}`. Removing the last page is allowed: the process stays up with no sources so the operator can name a new one. `/api/state` then returns an idle object (`running: false`, compiled backends, empty outputs) instead of 503 |
 | `POST /api/sources/apply` | `{"sources": [ ... ]}` — reconciles the whole set at once. Sources that have gone are stopped, new ones started, and the rest updated in place so an unchanged output keeps running |
 
 ```bash
@@ -229,6 +229,15 @@ advertisement — the *live* result, not the setting:
 The two differ in exactly the case that generates support questions, and
 `blocked_because` is the answer to "why can rookery not see this machine".
 
+The same response carries an `autostart` block: whether this executable is
+registered to start at login. That is a machine login-item, not a field in
+`settings.json`.
+
+```json
+{ "autostart": { "supported": true, "enabled": false,
+                 "label": "Start with Windows" } }
+```
+
 ### GET `/api/show`
 
 The running show as a show file (see `docs/05-settings.md`). `?tabs=0` or
@@ -319,6 +328,7 @@ All take a JSON body and return `{"ok":true}` or `{"error":"..."}`.
 | `/api/settings/apply` | `{"source": { ... }}` | Applies a whole source configuration; see below |
 | `/api/settings/save` | `{}` | Writes the live configuration to the settings file. Returns `{"ok":true,"path":"..."}` |
 | `/api/settings/reload` | `{}` | Reads the settings file and applies it |
+| `/api/settings/autostart` | `{"enabled": true}` | Registers or withdraws the login item. Returns `{"ok":true,"enabled":true}` |
 | `/api/show/load` | `{"show": { ... }, "tabs": true, "outputs": false}` | Recalls a show file. Either half may be `false`; both default to `true`. Returns `{"ok":true,"notes":[...]}`, where the notes name any saved rigs skipped because their tab is not open. 400 for a file that is not a show or lacks a half that was asked for; 409 if some of it applied |
 | `/api/log/level` | `{"level": "debug"}` | Returns the level actually in force |
 | `/api/diagnostics/report` | `{"reason": "..."}` | Writes a crash report without a crash. Returns its path |

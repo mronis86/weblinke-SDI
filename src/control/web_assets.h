@@ -1,18 +1,15 @@
 #pragma once
 
+#include <string>
+
 namespace weblinked::assets {
 
-/// The control page, compiled in.
-///
-/// Embedded rather than served from disk so the application is one file to
-/// deploy and cannot be broken by a missing directory. It is the *whole* UI —
-/// WebLinked opens no window of its own, so this page in a browser is the app's
-/// only front end, which is why there is no GUI toolkit anywhere in this project.
-///
-/// Deliberately plain: no framework, no build step, no external requests. A
-/// broadcast tool that cannot open its own control panel because a CDN is
-/// unreachable is not a broadcast tool.
-inline constexpr const char* kControlPage = R"WEBLINKED(<!doctype html>
+/// The control page, compiled in. Edit control_page.html, then run
+/// tools/embed_control_page.py — there is still no page build step at
+/// compile time; this header is what the binary serves.
+
+namespace detail {
+inline constexpr char kControlPage_0[] = R"WEBLINKED(<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -20,38 +17,35 @@ inline constexpr const char* kControlPage = R"WEBLINKED(<!doctype html>
 <title>WebLinked</title>
 <style>
   :root {
-    --bg: #14171a;
-    --panel: #1d2126;
-    --panel-2: #23282e;
-    --line: #31383f;
-    --text: #e6eaee;
-    --dim: #8e9aa6;
-    --accent: #4da3ff;
-    --live: #35c46a;
+    --bg: #0b0d10;
+    --panel: #14181d;
+    --panel-2: #1b2128;
+    --line: #2c343d;
+    --text: #eef2f6;
+    --dim: #8d99a6;
+    --accent: #5eb0ff;
+    --live: #3dd68c;
     --off: #5a646e;
-    --bad: #ff5f56;
+    --bad: #ff6b61;
+    --warn: #ffc76b;
   }
   * { box-sizing: border-box; }
-  /* The browser's own [hidden] rule is display:none at UA specificity, so any
-     class here that sets a display — .check is flex — silently outranks it and
-     the element stays visible. That showed up as an alpha checkbox on the
-     preview output, which has no alpha to carry. */
   [hidden] { display: none !important; }
   body {
     margin: 0; background: var(--bg); color: var(--text);
-    font: 13px/1.5 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font: 13px/1.45 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   }
   header {
-    display: flex; align-items: center; gap: 12px;
-    padding: 10px 16px; background: var(--panel);
+    display: flex; align-items: center; gap: 14px;
+    padding: 12px 18px; background: var(--panel);
     border-bottom: 1px solid var(--line);
   }
-  header h1 { font-size: 14px; font-weight: 600; margin: 0; letter-spacing: .04em; }
+  header h1 { font-size: 15px; font-weight: 650; margin: 0; letter-spacing: .02em; }
   header .version { color: var(--dim); font-size: 11px; }
   header .spacer { flex: 1; }
   .pill {
     display: inline-flex; align-items: center; gap: 6px;
-    padding: 3px 9px; border-radius: 999px; font-size: 11px;
+    padding: 4px 10px; border-radius: 999px; font-size: 11px;
     background: var(--panel-2); border: 1px solid var(--line); color: var(--dim);
   }
   .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--off); }
@@ -61,175 +55,168 @@ inline constexpr const char* kControlPage = R"WEBLINKED(<!doctype html>
     display: inline-block; width: 8px; height: 8px; border-radius: 2px;
     vertical-align: baseline; border: 1px solid var(--line);
   }
-  /* The source strip. Each chip carries its own thumbnail, because the id and
-     the raster are not enough to tell two scoreboards apart at a glance — the
-     picture is. */
   #source-strip {
     display: flex; align-items: stretch; gap: 8px; overflow-x: auto;
-    padding: 8px 16px; background: var(--panel);
+    padding: 10px 18px; background: var(--panel);
     border-bottom: 1px solid var(--line);
   }
   #source-chips { display: flex; gap: 8px; }
   .schip {
-    display: flex; align-items: center; gap: 8px; flex: 0 0 auto;
-    padding: 6px 10px 6px 6px; border-radius: 8px; cursor: pointer;
+    display: flex; align-items: center; gap: 10px; flex: 0 0 auto;
+    padding: 6px 12px 6px 6px; border-radius: 10px; cursor: pointer;
     background: var(--panel-2); border: 1px solid var(--line); color: var(--dim);
-    font-size: 11px; text-align: left;
+    font-size: 12px; text-align: left;
   }
   .schip:hover { border-color: var(--accent); }
-  .schip.on { border-color: var(--accent); color: var(--text); }
+  .schip.on { border-color: var(--accent); color: var(--text); background: #1e2a36; }
   .schip canvas {
-    width: 64px; height: 36px; border-radius: 4px; background: #000;
+    width: 72px; height: 40px; border-radius: 6px; background: #000;
     display: block; flex: 0 0 auto;
   }
-  .schip .sname { font-weight: 600; color: var(--text); }
-  .schip .smeta { display: block; color: var(--dim); }
-  #add-source {
-    flex: 0 0 auto; align-self: center; margin-left: 4px;
-  }
+  .schip .sname { font-weight: 650; color: var(--text); }
+  .schip .smeta { display: block; color: var(--dim); font-size: 11px; }
+  #add-source, #remove-source { align-self: center; }
   #new-source {
-    display: flex; align-items: center; gap: 6px; flex: 0 0 auto;
-    align-self: center; margin-left: 4px;
+    display: flex; align-items: center; gap: 6px; flex: 0 0 auto; align-self: center;
   }
-  #new-source[hidden] { display: none; }
-  #new-source input {
-    padding: 5px 7px; border-radius: 6px; font-size: 11px;
+  #new-source input, #new-source select {
+    width: auto; padding: 6px 8px; border-radius: 7px; font-size: 12px;
     background: var(--panel-2); border: 1px solid var(--line); color: var(--text);
   }
-  #new-source input:invalid { border-color: var(--bad); }
+  .row > select { flex: 1; min-width: 0; }
   main {
-    display: grid; grid-template-columns: minmax(320px, 1fr) minmax(280px, 420px);
-    gap: 14px; padding: 14px; align-items: start;
+    display: grid; grid-template-columns: minmax(380px, 1.4fr) minmax(320px, 440px);
+    gap: 16px; padding: 16px 18px 24px; align-items: start;
   }
-  @media (max-width: 820px) { main { grid-template-columns: 1fr; } }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  main[hidden] { display: none; }
+  #live-working { display: contents; }
+  #view-live.empty { grid-template-columns: minmax(320px, 560px); }
+  #view-live.empty #live-working { display: none; }
   section {
     background: var(--panel); border: 1px solid var(--line);
-    border-radius: 8px; padding: 12px 14px;
+    border-radius: 12px; padding: 14px 16px;
   }
   section h2 {
     font-size: 11px; text-transform: uppercase; letter-spacing: .08em;
-    color: var(--dim); margin: 0 0 10px; font-weight: 600;
+    color: var(--dim); margin: 0 0 12px; font-weight: 650;
   }
-  label { display: block; font-size: 11px; color: var(--dim); margin-bottom: 4px; }
-  input[type=text], select {
-    width: 100%; padding: 7px 9px; background: var(--bg);
-    border: 1px solid var(--line); border-radius: 5px; color: var(--text);
+  label { display: block; font-size: 11px; color: var(--dim); margin-bottom: 5px; }
+  input[type=text], input[type=number], select {
+    width: 100%; padding: 8px 10px; background: var(--bg);
+    border: 1px solid var(--line); border-radius: 7px; color: var(--text);
     font: inherit;
   }
-  input[type=text]:focus, select:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+  input[type=text]:focus, input[type=number]:focus, select:focus {
+    outline: 1px solid var(--accent); border-color: var(--accent);
+  }
+  input[type=color] {
+    width: 100%; height: 36px; padding: 2px; background: var(--bg);
+    border: 1px solid var(--line); border-radius: 7px; cursor: pointer;
+  }
   .row { display: flex; gap: 8px; align-items: flex-end; }
   .row > *:first-child { flex: 1; }
+  .buttons { display: flex; gap: 8px; flex-wrap: wrap; }
   button {
-    padding: 7px 13px; background: var(--panel-2); color: var(--text);
-    border: 1px solid var(--line); border-radius: 5px; font: inherit;
+    padding: 8px 13px; background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--line); border-radius: 7px; font: inherit;
     cursor: pointer; white-space: nowrap;
   }
   button:hover { border-color: var(--accent); }
-  button.primary { background: var(--accent); border-color: var(--accent); color: #08121c; font-weight: 600; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #071018; font-weight: 650; }
+  button.danger { border-color: #6a2c2a; color: #ffb3ae; }
+  button.danger:hover { border-color: var(--bad); }
   #preview {
-    width: 100%; display: block; background: #000; border-radius: 5px;
-    border: 1px solid var(--line); image-rendering: auto;
+    width: 100%; max-height: 360px; aspect-ratio: 16 / 9; display: block;
+    background: #000; border-radius: 8px; border: 1px solid var(--line);
+    object-fit: contain;
   }
-  table { width: 100%; border-collapse: collapse; font-size: 12px; }
-  th, td { text-align: left; padding: 6px 6px; border-bottom: 1px solid var(--line); }
-  th { color: var(--dim); font-weight: 500; font-size: 11px; }
-  tr:last-child td { border-bottom: none; }
-  td.num { text-align: right; font-variant-numeric: tabular-nums; color: var(--dim); }
-  .kind { color: var(--dim); font-size: 11px; }
-  .err { color: var(--bad); font-size: 11px; }
-  .meter { height: 4px; background: var(--panel-2); border-radius: 2px; overflow: hidden; margin-top: 8px; }
+  #preview.live { outline: 2px solid var(--accent); outline-offset: 3px; cursor: crosshair; }
+  .meter { height: 4px; background: var(--panel-2); border-radius: 2px; overflow: hidden; margin-top: 10px; }
   .meter > div { height: 100%; background: var(--live); width: 0; transition: width .1s linear; }
-  dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; font-size: 12px; }
-  dt { color: var(--dim); }
-  dd { margin: 0; font-variant-numeric: tabular-nums; }
+  .hint, .note { font-size: 11px; color: var(--dim); margin: 8px 0 0; }
+  .hint strong { color: var(--bad); font-weight: 650; }
+  .err { color: var(--bad); font-size: 12px; margin: 8px 0 0; }
+  .path { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color: var(--dim); word-break: break-all; }
+  .field { margin-bottom: 10px; }
+  .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+  .check {
+    display: flex; align-items: center; gap: 7px; color: var(--text);
+    font-size: 12px; margin: 8px 0;
+  }
+  .check input { accent-color: var(--accent); margin: 0; }
+  nav { display: flex; gap: 4px; }
+  nav button {
+    background: none; border: 1px solid transparent; border-radius: 7px;
+    color: var(--dim); padding: 5px 11px; font-size: 12px;
+  }
+  nav button.on { background: var(--panel-2); border-color: var(--line); color: var(--text); }
   section h2 .toggle {
     float: right; text-transform: none; letter-spacing: 0; font-weight: 400;
     color: var(--dim); cursor: pointer; display: inline-flex; align-items: center;
     gap: 5px; font-size: 11px;
   }
   section h2 .toggle input { margin: 0; accent-color: var(--accent); }
-  .hint { font-size: 11px; color: var(--dim); margin: 8px 0 0; }
-  .hint strong { color: var(--bad); font-weight: 600; }
-  #preview.live { outline: 2px solid var(--accent); outline-offset: 2px; cursor: crosshair; }
+  dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; font-size: 12px; }
+  dt { color: var(--dim); }
+  dd { margin: 0; font-variant-numeric: tabular-nums; }
+  .dest {
+    border: 1px solid var(--line); border-radius: 10px; padding: 12px;
+    margin-bottom: 10px; background: var(--panel-2);
+  }
+  .dest header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .dest .name { font-weight: 650; }
+  .dest .kind { color: var(--dim); font-size: 11px; }
+  .dest .meta { color: var(--dim); font-size: 12px; }
+  #add-form { margin-top: 12px; padding-top: 4px; }
+  #preview-overlay {
+    position: fixed; inset: 0; z-index: 40; background: #07090c;
+    display: flex; flex-direction: column; padding: 12px 16px 16px; gap: 10px;
+  }
+  #preview-overlay .bar, #view-preview .bar {
+    display: flex; align-items: center; gap: 10px;
+  }
+  #preview-overlay .bar .spacer, #view-preview .bar .spacer { flex: 1; }
+  #preview-slot, #overlay-slot, #pop-slot {
+    flex: 1; min-height: 0; display: flex;
+  }
+  #preview-overlay canvas, #view-preview canvas {
+    width: 100%; height: 100%; max-height: none; aspect-ratio: auto;
+    object-fit: contain;
+  }
+  #view-preview {
+    display: flex; flex-direction: column; min-height: calc(100vh - 58px);
+    padding: 12px 16px 16px;
+  }
+  #view-preview[hidden] { display: none; }
   #toast {
-    position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%);
+    position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
     background: var(--panel-2); border: 1px solid var(--line); color: var(--text);
-    padding: 8px 14px; border-radius: 6px; font-size: 12px; opacity: 0;
-    transition: opacity .2s; pointer-events: none; max-width: 80vw;
+    padding: 9px 14px; border-radius: 8px; font-size: 12px; opacity: 0;
+)WEBLINKED";
+inline constexpr char kControlPage_1[] = R"WEBLINKED(    transition: opacity .2s; pointer-events: none; max-width: 80vw; z-index: 20;
   }
   #toast.show { opacity: 1; }
   #toast.bad { border-color: var(--bad); color: #ffd9d6; }
-
-  /* --- tabs ---------------------------------------------------------------
-     Three views on one page rather than three pages: switching must not cost
-     the preview stream or the state poll to a navigation. */
-  nav { display: flex; gap: 2px; }
-  nav button {
-    background: none; border: 1px solid transparent; border-radius: 5px;
-    color: var(--dim); padding: 4px 10px; font-size: 11px;
-    text-transform: uppercase; letter-spacing: .06em;
-  }
-  nav button.on { background: var(--panel-2); border-color: var(--line); color: var(--text); }
-  main[hidden] { display: none; }
-
-  /* --- settings ----------------------------------------------------------- */
-  input[type=number] {
-    width: 100%; padding: 7px 9px; background: var(--bg);
-    border: 1px solid var(--line); border-radius: 5px; color: var(--text);
-    font: inherit;
-  }
-  .field { margin-bottom: 10px; }
-  /* A colour well the same height as the selects beside it — the UA default is
-     a small swatch that sits oddly in a grid row of full-width controls. */
-  input[type=color] {
-    width: 100%; height: 33px; padding: 2px; background: var(--bg);
-    border: 1px solid var(--line); border-radius: 5px; cursor: pointer;
-  }
-  .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
-  .check {
-    display: flex; align-items: center; gap: 6px; color: var(--text);
-    font-size: 12px; margin-bottom: 10px;
-  }
-  .check input { accent-color: var(--accent); margin: 0; }
-  .output-editor {
-    border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px;
-    margin-bottom: 10px; background: var(--panel-2);
-  }
-  .output-editor header {
-    background: none; border: none; padding: 0 0 8px; gap: 8px;
-  }
-  .output-editor header .name { font-size: 12px; font-weight: 600; }
-  .buttons { display: flex; gap: 8px; flex-wrap: wrap; }
-  button.danger { border-color: #6a2c2a; color: #ffb3ae; }
-  button.danger:hover { border-color: var(--bad); }
-  .note { font-size: 11px; color: var(--dim); margin: 8px 0 0; }
-  .path {
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px;
-    color: var(--dim); word-break: break-all;
-  }
-
-  /* --- diagnostics -------------------------------------------------------- */
   #log {
-    background: #0e1114; border: 1px solid var(--line); border-radius: 5px;
+    background: #0e1114; border: 1px solid var(--line); border-radius: 8px;
     padding: 8px 10px; height: 420px; overflow: auto;
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 11px; line-height: 1.45; white-space: pre-wrap; word-break: break-word;
   }
-  #log div.warn { color: #ffc76b; }
+  #log div.warn { color: var(--warn); }
   #log div.error, #log div.fatal { color: #ff9b93; }
   #log div.debug, #log div.trace { color: var(--dim); }
 </style>
 </head>
 <body>
 <header>
-  <h1>WEBLINKED</h1>
+  <h1>WebLinked</h1>
   <span class="version" id="version"></span>
   <nav>
-    <button data-view="control" class="on">Control</button>
-    <button data-view="settings">Settings</button>
-    <button data-view="diagnostics">Diagnostics</button>
-    <!-- Opens the shared About dialog; about.js delegates this attribute from
-         the document, so the script below wires up no handler for it. -->
+    <button data-view="live" class="on">Live</button>
+    <button data-view="advanced">Advanced</button>
+    <button data-view="diagnostics">Log</button>
     <button type="button" data-stoatworks-about>About</button>
   </nav>
   <span class="spacer"></span>
@@ -237,204 +224,193 @@ inline constexpr const char* kControlPage = R"WEBLINKED(<!doctype html>
   <span class="pill" id="format-pill">&mdash;</span>
 </header>
 
-<!-- The source strip. Hidden entirely when there is only one source, so a
-     command-line launch looks exactly as it did before this existed and an
-     operator with one feed is never asked to think about a collection. -->
 <div id="source-strip">
   <div id="source-chips"></div>
-  <button id="add-source" title="Start another pipeline">+ tab</button>
+  <button id="add-source">+ Add page</button>
+  <button id="remove-source" hidden>Remove page</button>
   <form id="new-source" hidden>
-    <input type="text" id="ns-id" placeholder="id" spellcheck="false" size="8"
-           pattern="[A-Za-z0-9._-]+" required
-           title="Letters, digits, dot, dash and underscore">
+    <input type="text" id="ns-id" placeholder="Name" spellcheck="false" size="12" required>
     <input type="text" id="ns-url" placeholder="https://..." spellcheck="false">
-    <input type="text" id="ns-format" placeholder="1080p50" spellcheck="false" size="9">
+    <select id="ns-raster">
+      <option value="720">720</option>
+      <option value="1080" selected>1080</option>
+      <option value="2160">2160</option>
+    </select>
+    <select id="ns-rate"></select>
     <button type="submit" class="primary">Start</button>
     <button type="button" id="ns-cancel">Cancel</button>
   </form>
 </div>
 
-<main id="view-control">
-  <div style="display:flex;flex-direction:column;gap:14px">
+<main id="view-live">
+  <section id="no-page" hidden>
+    <h2>No page yet</h2>
+    <p>Name a page in the bar above to start. Nothing is on air until you do.</p>
+    <p class="note">Remember brings those pages back the next time this app starts. Open a show to load one from a file.</p>
+  </section>
+  <div id="live-working">
+  <div style="display:flex;flex-direction:column;gap:16px">
     <section>
-      <h2>Source</h2>
-      <label for="url">URL</label>
+      <h2>Preview
+        <label class="toggle" title="Clicks and keys go to the live page.">
+          <input type="checkbox" id="interactive"> click the page
+        </label>
+      </h2>
+      <div id="preview-slot">
+        <canvas id="preview" width="480" height="270" tabindex="0"></canvas>
+      </div>
+      <p id="interactive-hint" class="hint" hidden>
+        Clicks and typing go to the live page.
+        <strong>This is the on-air picture.</strong>
+      </p>
+      <div class="buttons" style="margin-top:10px">
+        <button class="primary" id="preview-larger">Larger preview</button>
+        <button id="preview-pop">Pop out window</button>
+      </div>
+      <label for="preview-factor" style="margin-top:12px">Preview quality</label>
+      <select id="preview-factor" style="width:auto">
+        <option value="1">Full (heaviest)</option>
+        <option value="2">High</option>
+        <option value="4" selected>Medium</option>
+        <option value="8">Light</option>
+      </select>
+      <p class="note">Only the picture on this page. SDI, NDI and other outputs stay at full raster.</p>
+      <div class="meter"><div id="audio-meter"></div></div>
+    </section>
+    <section>
+      <h2>This page</h2>
+      <label for="url">Address</label>
       <div class="row">
         <input type="text" id="url" spellcheck="false" placeholder="https://example.com/graphic.html">
         <button class="primary" id="load">Load</button>
       </div>
-      <div class="row" style="margin-top:10px">
+      <div class="buttons" style="margin-top:10px">
         <button id="reload">Reload</button>
         <button id="hard-reload">Reload (no cache)</button>
         <button id="mute">Mute</button>
       </div>
-      <div class="meter"><div id="audio-meter"></div></div>
-    </section>
-
-    <section>
-      <h2>Preview
-        <label class="toggle" title="Forward clicks and keys to the page. Remember the page is on air.">
-          <input type="checkbox" id="interactive"> interactive
-        </label>
-      </h2>
-      <canvas id="preview" width="480" height="270" tabindex="0"></canvas>
-      <p id="interactive-hint" class="hint" hidden>
-        Clicks, scrolling and typing go to the live page — enough to dismiss a
-        cookie banner or sign in. A link that asks for a new tab loads here
-        instead of opening a window. <strong>This is the on-air output.</strong>
-      </p>
-    </section>
-
-    <section>
-      <h2>Format</h2>
+      <label style="margin-top:14px">Picture size</label>
       <div class="row">
-        <input type="text" id="format" spellcheck="false" placeholder="1080p50">
+        <select id="format-raster">
+          <option value="720">720</option>
+          <option value="1080">1080</option>
+          <option value="2160">2160</option>
+          <option value="custom">Custom</option>
+        </select>
+        <select id="format-rate"></select>
+        <input type="text" id="format" spellcheck="false" placeholder="1920x1080p50" hidden>
         <button id="set-format">Apply</button>
       </div>
-      <p style="color:var(--dim);font-size:11px;margin:8px 0 0">
-        Shorthand such as <code>1080p50</code>, <code>720p59.94</code>,
-        <code>1080i25</code>, or an explicit raster like <code>1920x1080p50</code>.
-        Applying restarts every output.
+      <p class="note">PAL and NTSC rates are listed after you pick a size. Changing this restarts every output on this page.</p>
+    </section>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:16px">
+    <section>
+      <h2>Destinations</h2>
+      <div id="destinations"></div>
+      <p class="note" id="dest-empty" hidden>Nothing leaving this PC yet.</p>
+      <label for="add-kind" style="margin-top:10px">Add a destination</label>
+      <select id="add-kind">
+        <option value="">Choose a type…</option>
+      </select>
+      <div id="add-form" hidden></div>
+    </section>
+  </div>
+  </div>
+
+    <section>
+      <h2>Save</h2>
+      <div class="buttons">
+        <button class="primary" id="save-settings">Remember for next launch</button>
+        <button id="save-show-quick">Save show&hellip;</button>
+        <button id="load-show-quick">Open show&hellip;</button>
+      </div>
+      <p class="note">
+        Remember keeps every page on this machine. A show file downloads to
+        <em>this</em> computer so you can carry it to another box.
       </p>
     </section>
-  </div>
-
-  <div style="display:flex;flex-direction:column;gap:14px">
-    <section>
-      <h2>Outputs</h2>
-      <table id="outputs"><tbody></tbody></table>
-    </section>
-
-    <section>
-      <h2>Pacing</h2>
-      <dl id="pacing"></dl>
-    </section>
-
-    <section>
-      <h2>Source detail</h2>
-      <dl id="source"></dl>
-    </section>
-  </div>
 </main>
 
-<main id="view-settings" hidden>
-  <div style="display:flex;flex-direction:column;gap:14px">
+<main id="view-advanced" hidden>
+  <div style="display:flex;flex-direction:column;gap:16px">
     <section>
-      <h2>Outputs</h2>
-      <div id="output-editors"></div>
-      <div class="buttons">
-        <button id="add-output">Add an output</button>
-      </div>
-      <p class="note">
-        Changes apply immediately. An output that cannot open keeps its previous
-        settings and shows why &mdash; nothing is silently dropped.
-      </p>
-    </section>
-
-    <section>
-      <h2>Saved settings</h2>
+      <h2>This machine</h2>
       <p class="path" id="settings-path">&mdash;</p>
       <div class="buttons" style="margin-top:10px">
-        <button class="primary" id="save-settings">Save</button>
-        <button id="reload-settings">Reload from file</button>
+        <button id="reload-settings">Reload remembered setup</button>
       </div>
-      <p class="note">
-        Saving records what is actually running, so a card that failed to open
-        is never written down as working. Anything given on the command line
-        wins over the file at the next launch.
-      </p>
+      <label class="check" id="autostart-row" hidden>
+        <input type="checkbox" id="autostart">
+        <span id="autostart-label">Start when I log in</span>
+      </label>
     </section>
-
     <section>
-      <h2>Show file</h2>
+      <h2>Show file (halves)</h2>
       <div class="field">
         <label for="show-name">Name</label>
         <input type="text" id="show-name" spellcheck="false" value="show">
       </div>
       <label class="check">
         <input type="checkbox" id="show-tabs" checked>
-        Tabs &mdash; which pages are open
+        Pages
       </label>
       <label class="check">
         <input type="checkbox" id="show-outputs" checked>
-        Outputs &mdash; each tab's format and where it goes
+        Destinations
       </label>
       <div class="buttons">
         <button class="primary" id="save-show">Save show&hellip;</button>
-        <button id="load-show">Load show&hellip;</button>
-        <input type="file" id="show-file" accept=".json,application/json" hidden>
+        <button id="load-show">Open show&hellip;</button>
+        <input type="file" id="show-file" accept=".weblinked.json,.json,application/json" hidden>
       </div>
-      <p class="note">
-        Saved to and loaded from <em>this</em> computer, not the one rendering.
-        Tick one half to recall it on its own: tabs alone changes the pages and
-        keeps every output; outputs alone restores the rig on the tabs already
-        open. Loading tabs closes any tab the show does not have.
-      </p>
+      <p class="note">Tick one half to recall pages or destinations on their own.</p>
     </section>
   </div>
-
-  <div style="display:flex;flex-direction:column;gap:14px">
+  <div style="display:flex;flex-direction:column;gap:16px">
     <section>
-      <h2>Source</h2>
+      <h2>Page behaviour</h2>
       <div class="field">
-        <label for="set-url">URL</label>
-        <input type="text" id="set-url" spellcheck="false">
+        <label for="set-matrix">Colour matrix</label>
+        <select id="set-matrix">
+          <option value="auto">Auto (709 at 720+ lines)</option>
+          <option value="709">BT.709</option>
+          <option value="601">BT.601</option>
+        </select>
       </div>
-      <div class="fields">
-        <div class="field">
-          <label for="set-format-2">Format</label>
-          <input type="text" id="set-format-2" spellcheck="false" placeholder="1080p50">
-        </div>
-        <div class="field">
-          <label for="set-matrix">Colour matrix</label>
-          <select id="set-matrix">
-            <option value="auto">auto (709 at 720+ lines)</option>
-            <option value="709">BT.709</option>
-            <option value="601">BT.601</option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="set-pacing">Pacing</label>
-          <select id="set-pacing">
-            <option value="external">external &mdash; we drive frames</option>
-            <option value="internal">internal &mdash; Chromium's timer</option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="set-popups">New tabs and windows</label>
-          <select id="set-popups">
-            <option value="navigate">load here instead</option>
-            <option value="block">block</option>
-          </select>
-        </div>
+      <div class="field">
+        <label for="set-pacing">Who drives frames</label>
+        <select id="set-pacing">
+          <option value="external">WebLinked (recommended)</option>
+          <option value="internal">Chromium timer</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="set-popups">Links that want a new tab</label>
+        <select id="set-popups">
+          <option value="navigate">Load here</option>
+          <option value="block">Block</option>
+        </select>
       </div>
       <label class="check">
         <input type="checkbox" id="set-interactive">
-        Arm the preview for input when the page loads
+        Arm click-the-page when this page loads
       </label>
+)WEBLINKED";
+inline constexpr char kControlPage_2[] = R"WEBLINKED(      <p class="note">Preview quality (how sharp this control picture is) lives on Live. It does not change SDI or NDI.</p>
       <div class="buttons">
         <button class="primary" id="apply-settings">Apply</button>
-        <!-- Only shown when there is more than one source: removing the only
-             one would leave the process with nothing to control, which the
-             server refuses anyway. -->
-        <button id="remove-source" hidden>Remove this source</button>
       </div>
-      <p class="note">
-        Changing the format or the pacing restarts things: every output reopens
-        at the new raster, and a pacing change rebuilds the browser at the same
-        URL. Neither is a mid-show operation.
-      </p>
     </section>
   </div>
 </main>
 
 <main id="view-diagnostics" hidden>
-  <div style="display:flex;flex-direction:column;gap:14px">
+  <div style="display:flex;flex-direction:column;gap:16px">
     <section>
       <h2>Log
-        <label class="toggle">
-          <input type="checkbox" id="log-follow" checked> follow
-        </label>
+        <label class="toggle"><input type="checkbox" id="log-follow" checked> follow</label>
       </h2>
       <div id="log"></div>
       <div class="buttons" style="margin-top:10px">
@@ -449,27 +425,22 @@ inline constexpr const char* kControlPage = R"WEBLINKED(<!doctype html>
       </div>
     </section>
   </div>
-
-  <div style="display:flex;flex-direction:column;gap:14px">
+  <div style="display:flex;flex-direction:column;gap:16px">
     <section>
       <h2>Collect</h2>
       <div class="buttons">
         <button class="primary" id="download-bundle">Download a bundle</button>
         <button id="write-report">Write a report</button>
       </div>
-      <p class="note">
-        A bundle is one JSON file carrying the build identity, the platform, the
-        redacted configuration, the recent log and any crash reports sitting
-        beside it. It downloads here rather than only naming a path, because the
-        machine with the fault is usually not the one you are sitting at.
-      </p>
     </section>
-
     <section>
       <h2>Where things are</h2>
       <dl id="diag-paths"></dl>
     </section>
-
+    <section>
+      <h2>Health</h2>
+      <dl id="pacing"></dl>
+    </section>
     <section>
       <h2>Browser</h2>
       <dl id="diag-browser"></dl>
@@ -477,22 +448,58 @@ inline constexpr const char* kControlPage = R"WEBLINKED(<!doctype html>
   </div>
 </main>
 
+<main id="view-preview" hidden>
+  <div class="bar">
+    <strong>Preview</strong>
+    <span class="note" id="pop-title"></span>
+    <span class="spacer"></span>
+    <label class="check" style="margin:0">
+      <input type="checkbox" id="interactive-pop" checked> click the page
+    </label>
+  </div>
+  <div id="pop-slot"></div>
+  <p class="hint">This is the on-air picture. Close the window when you are done.</p>
+</main>
+
+<div id="preview-overlay" hidden>
+  <div class="bar">
+    <strong>Preview</strong>
+    <span class="note">Click and type here to control the page.</span>
+    <span class="spacer"></span>
+    <button id="preview-pop-from-overlay">Pop out window</button>
+    <button class="primary" id="preview-close">Close</button>
+  </div>
+  <div id="overlay-slot"></div>
+</div>
+
 <div id="toast"></div>
 
 <script>
 const qs = new URLSearchParams(location.search);
 const token = qs.get('token');
-
-// Which pipeline this page is driving. Empty means "whichever is primary",
-// which is what the server assumes for a request that names none — so before
-// the first /api/sources reply, and for a single-source launch, every call
-// behaves exactly as it did when there was only ever one engine.
-//
-// Threading it through api() rather than through each call site is deliberate:
-// every fetch on this page already goes through here for the token, so there is
-// no way to add a request later that forgets to say which source it meant. The
-// process-wide endpoints ignore the parameter.
 let currentSource = qs.get('source') || '';
+
+const KIND_LABEL = {
+  preview: 'This page', ndi: 'NDI', omt: 'OMT', decklink: 'SDI (DeckLink)',
+  aja: 'SDI (AJA)', screen: 'Screen', kms: 'Screen', stream: 'Stream'
+};
+
+function sharedProtocol() {
+  const live = (lastState.outputs || []).find((o) => o.kind === 'shared' && o.protocol);
+  if (live) return live.protocol;
+  if (/Win/i.test(navigator.platform) || /Windows/i.test(navigator.userAgent)) return 'Spout';
+  if (/Mac/i.test(navigator.platform)) return 'Syphon';
+  return 'Shared';
+}
+
+function kindLabel(kind) {
+  if (kind === 'shared') return sharedProtocol();
+  return KIND_LABEL[kind] || kind;
+}
+const OUTPUT_FIELDS = {
+  ndi: ['ndi_name', 'alpha'], omt: ['alpha'], decklink: ['device', 'keying'], aja: ['device'],
+  screen: ['display', 'scaling'], shared: [], preview: ['factor'], stream: ['url']
+};
 
 function api(path) {
   const params = [];
@@ -537,54 +544,146 @@ async function get(path) {
   return data;
 }
 
-// --- views ------------------------------------------------------------------
-//
-// Switching hides a <main> rather than navigating, so the preview stream and
-// the state poll survive a trip to the settings and back.
+function esc(text) {
+  return String(text).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[c]);
+}
 
-let view = 'control';
+function errorHtml(text) {
+  return esc(text).replace(/https?:\/\/[^\s<]*[^\s<.,;:)]/g,
+    url => '<a href="' + url + '" target="_blank" rel="noopener noreferrer">' + url + '</a>');
+}
+
+function slug(name) {
+  const clean = String(name).toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '');
+  return clean || 'page';
+}
+
+function uniqueName(base, used) {
+  if (!used.has(base)) return base;
+  let n = 2;
+  while (used.has(base + ' ' + n)) n += 1;
+  return base + ' ' + n;
+}
+
+const RATE_GROUPS = [
+  { label: 'PAL', rates: [
+    { value: 'p25', label: '25p' },
+    { value: 'p50', label: '50p' },
+    { value: 'i25', label: '50i (25 Hz)' },
+  ]},
+  { label: 'NTSC', rates: [
+    { value: 'p23.98', label: '23.98p' },
+    { value: 'p29.97', label: '29.97p' },
+    { value: 'p59.94', label: '59.94p' },
+    { value: 'i29.97', label: '59.94i (29.97 Hz)' },
+  ]},
+  { label: 'Integer', rates: [
+    { value: 'p24', label: '24p' },
+    { value: 'p30', label: '30p' },
+    { value: 'p60', label: '60p' },
+  ]},
+];
+
+function parseFormat(text) {
+  const m = String(text || '').toLowerCase().match(/^(?:(\d+)x)?(\d+)([pi])([0-9.]+)$/);
+  if (!m) return { raster: 'custom', rate: 'p50', raw: text || '' };
+  const width = m[1] ? Number(m[1]) : 0;
+  const height = Number(m[2]);
+  const rate = m[3] + m[4];
+  let raster = 'custom';
+  if (height === 720) raster = '720';
+  else if (height === 1080 && (!width || width === 1920)) raster = '1080';
+  else if (height === 2160 && (!width || width === 3840)) raster = '2160';
+  return { raster, rate, raw: text };
+}
+
+function rateOptions(raster) {
+  const skipInterlace = raster === '720' || raster === '2160';
+  return RATE_GROUPS.map((group) => {
+    const rates = group.rates.filter((r) => !skipInterlace || r.value[0] === 'p');
+    if (!rates.length) return '';
+    return '<optgroup label="' + group.label + '">' +
+      rates.map((r) => '<option value="' + r.value + '">' + r.label + '</option>').join('') +
+      '</optgroup>';
+  }).join('');
+}
+
+function fillRateSelect(select, raster, preferred) {
+  select.innerHTML = rateOptions(raster);
+  const values = Array.from(select.options).map((o) => o.value);
+  select.value = values.includes(preferred) ? preferred : (values.includes('p50') ? 'p50' : values[0] || '');
+}
+
+function currentFormatSpec() {
+  const raster = document.getElementById('format-raster').value;
+  if (raster === 'custom') return document.getElementById('format').value.trim();
+  return raster + document.getElementById('format-rate').value;
+}
+
+function syncFormatControls(text) {
+  const parsed = parseFormat(text || '1080p50');
+  const rasterEl = document.getElementById('format-raster');
+  const rateEl = document.getElementById('format-rate');
+  const customEl = document.getElementById('format');
+  rasterEl.value = parsed.raster;
+  const custom = parsed.raster === 'custom';
+  rateEl.hidden = custom;
+  customEl.hidden = !custom;
+  if (custom) customEl.value = parsed.raw;
+  else fillRateSelect(rateEl, parsed.raster, parsed.rate);
+}
+
+function definitions(target, pairs) {
+  target.innerHTML = pairs
+    .map(([key, value]) => '<dt>' + key + '</dt><dd>' + value + '</dd>')
+    .join('');
+}
+
+let view = 'live';
 let lastState = {};
 
 function showView(name) {
   view = name;
-  for (const button of document.querySelectorAll('nav button')) {
+)WEBLINKED";
+inline constexpr char kControlPage_3[] = R"WEBLINKED(  for (const button of document.querySelectorAll('nav button[data-view]')) {
     button.classList.toggle('on', button.dataset.view === name);
   }
-  for (const id of ['control', 'settings', 'diagnostics']) {
-    document.getElementById('view-' + id).hidden = id !== name;
+  for (const id of ['live', 'advanced', 'diagnostics', 'preview']) {
+    const el = document.getElementById('view-' + id);
+    if (el) el.hidden = id !== name;
   }
-  // Populated on arrival, not on every poll: a form that rewrites itself while
-  // somebody is typing in it is worse than a stale one.
-  if (name === 'settings') renderSettings(lastState);
+  placePreview(name === 'preview' ? 'pop' : 'live');
+  if (name === 'advanced') {
+    pullSettingsPath();
+    const settings = lastState.settings || {};
+    const source = lastState.source || {};
+    document.getElementById('set-matrix').value = settings.matrix || 'auto';
+    document.getElementById('set-pacing').value = source.pacing || 'external';
+    document.getElementById('set-popups').value = source.popup_policy || 'navigate';
+    document.getElementById('set-interactive').checked = !!settings.interactive_by_default;
+  }
   if (name === 'diagnostics') pullLog();
 }
 
-for (const button of document.querySelectorAll('nav button')) {
+for (const button of document.querySelectorAll('nav button[data-view]')) {
   button.onclick = () => showView(button.dataset.view);
 }
 
-// ?view=settings — so a view is linkable, and so the screenshot script can
-// capture each one without driving a window server. Applied after the first
-// state arrives rather than now: the settings editors are built from state, and
-// switching to them before there is any would render an empty page.
 const requestedView = qs.get('view');
-let pendingView = ['control', 'settings', 'diagnostics'].includes(requestedView)
-  ? requestedView
-  : null;
-
-// --- controls ---------------------------------------------------------------
+const viewAlias = { control: 'live', settings: 'advanced', diagnostics: 'diagnostics', live: 'live', advanced: 'advanced', preview: 'preview' };
+let pendingView = viewAlias[requestedView] || null;
 
 let urlDirty = false;
 const urlField = document.getElementById('url');
 urlField.addEventListener('input', () => { urlDirty = true; });
-
 document.getElementById('load').onclick = async () => {
   const value = urlField.value.trim();
   if (!value) return;
   if (await post('/api/url', { url: value })) { urlDirty = false; toast('loading ' + value); }
 };
 urlField.addEventListener('keydown', (e) => { if (e.key === 'Enter') document.getElementById('load').click(); });
-
 document.getElementById('reload').onclick = () => post('/api/reload', {});
 document.getElementById('hard-reload').onclick = () => post('/api/reload', { ignore_cache: true });
 
@@ -594,338 +693,394 @@ document.getElementById('mute').onclick = async () => {
 };
 
 const formatField = document.getElementById('format');
+const formatRaster = document.getElementById('format-raster');
+const formatRate = document.getElementById('format-rate');
 let formatDirty = false;
 formatField.addEventListener('input', () => { formatDirty = true; });
+formatRaster.onchange = () => {
+  formatDirty = true;
+  const custom = formatRaster.value === 'custom';
+  formatRate.hidden = custom;
+  formatField.hidden = !custom;
+  if (custom) {
+    formatField.value = lastState.format || '';
+    formatField.focus();
+  } else {
+    fillRateSelect(formatRate, formatRaster.value, formatRate.value);
+  }
+};
+formatRate.onchange = () => { formatDirty = true; };
 document.getElementById('set-format').onclick = async () => {
-  const value = formatField.value.trim();
+  const value = currentFormatSpec();
   if (!value) return;
-  const result = await post('/api/format', { format: value });
-  if (result) { formatDirty = false; toast('format now ' + value); }
+  if (await post('/api/format', { format: value })) {
+    formatDirty = false;
+    toast('format now ' + value);
+  }
 };
 
-// --- state polling ----------------------------------------------------------
-
-function definitions(target, pairs) {
-  target.innerHTML = pairs
-    .map(([key, value]) => '<dt>' + key + '</dt><dd>' + value + '</dd>')
-    .join('');
+function previewOutput() {
+  return (lastState.outputs || []).find((o) => o.kind === 'preview');
 }
 
-// Output errors are built in C++ and can embed an operator-supplied device or
-// source name, so they are escaped before they ever reach innerHTML. Any http(s)
-// URL left in the text becomes a link — that is how the "NDI runtime not found"
-// message turns into a one-click route to the redistributable download.
-function errorHtml(text) {
-  const escaped = String(text).replace(/[&<>"']/g, c => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-  })[c]);
-  // Trailing punctuation is sentence structure, not part of the URL.
-  return escaped.replace(/https?:\/\/[^\s<]*[^\s<.,;:)]/g,
-    url => '<a href="' + url + '" target="_blank" rel="noopener noreferrer">' + url + '</a>');
+async function applyPreviewFactor(factor) {
+  const preview = previewOutput();
+  if (!preview) {
+    toast('preview is not running');
+    return;
+  }
+  const output = {
+    kind: 'preview',
+    name: preview.name || 'preview',
+    options: Object.assign({}, preview.options || {}, { factor: Number(factor) }),
+    background: preview.background || 'transparent',
+    background_colour: preview.background_colour || '#00b140',
+  };
+  if (await post('/api/output/update', { name: preview.name || 'preview', output: output })) {
+    toast('preview quality updated');
+    await refresh();
+  }
 }
 
-// A dot in the output's background colour, so a feed that has been left on
-// green is obvious from the monitor view rather than only from its editor.
-// The hex is re-checked here before it reaches a style attribute: it arrives
-// from the engine, which builds it from three bytes, but a value going into
-// markup should never be trusted on the strength of where it came from.
+const previewFactor = document.getElementById('preview-factor');
+previewFactor.onchange = () => applyPreviewFactor(previewFactor.value);
+
+function syncPreviewFactor(state) {
+  const preview = (state.outputs || []).find((o) => o.kind === 'preview');
+  if (!preview) return;
+  const factor = String((preview.options && preview.options.factor) || preview.factor || 4);
+  if (Array.from(previewFactor.options).some((o) => o.value === factor)) {
+    previewFactor.value = factor;
+  }
+}
+
+function displayOptions(selected) {
+  const displays = lastState.displays || [];
+  if (displays.length === 0) {
+    return '<option value="' + selected + '">Display ' + selected + '</option>';
+  }
+  return displays.map((d) => {
+    const label = d.name + ' (' + d.width + 'x' + d.height +
+      (d.refresh_hz ? ', ' + Math.round(d.refresh_hz) + ' Hz' : '') +
+      (d.primary ? ', main' : '') + ')';
+    return '<option value="' + d.index + '"' + (d.index === selected ? ' selected' : '') + '>' +
+      esc(label) + '</option>';
+  }).join('');
+}
+
 function backgroundSwatch(output) {
   if (output.background !== 'colour') return '';
   const colour = output.background_colour || '';
   if (!/^#[0-9a-f]{6}$/i.test(colour)) return '';
-  return ' &middot; <span class="swatch" style="background:' + colour + '"></span>';
+  return ' <span class="swatch" style="background:' + colour + '"></span>';
 }
 
-function renderOutputs(outputs) {
-  const body = document.querySelector('#outputs tbody');
-  body.innerHTML = '';
-  for (const output of outputs) {
-    const row = document.createElement('tr');
+function destSummary(output) {
+  const bits = [];
+  if (output.kind === 'decklink' || output.kind === 'aja') {
+    bits.push('Card ' + (output.device_index || 0));
+    const keying = (output.options || {}).keying;
+    bits.push(keying === 'external' ? 'Key + fill' : keying === 'internal' ? 'Overlay' : 'Fill only');
+  }
+  if (output.kind === 'ndi') {
+    bits.push('Full NDI');
+    bits.push((output.options || {}).alpha ? 'Alpha' : 'No alpha');
+  }
+  if (output.kind === 'omt') {
+    bits.push((output.options || {}).alpha ? 'Alpha' : 'No alpha');
+  }
+  if (output.kind === 'shared') bits.push(output.protocol || kindLabel('shared'));
+  if (output.kind === 'screen') bits.push('Display ' + ((output.options || {}).display ?? 0));
+  if (output.device) bits.push(output.device);
+  if (output.pixel_format) bits.push(output.pixel_format);
+  if (output.frames !== undefined) bits.push(output.frames + ' f');
+  if (output.frames_dropped) bits.push(output.frames_dropped + ' drop');
+  return bits.join(' · ');
+}
 
-    const nameCell = document.createElement('td');
+let destEditName = null;
+
+function destEditorFields(output, kind) {
+  const options = output.options || {};
+  const shown = OUTPUT_FIELDS[kind] || [];
+  let html = '<div class="fields">';
+  html += '<div class="field"><label>' +
+    (kind === 'ndi' ? 'NDI name' : kind === 'shared' ? kindLabel('shared') + ' name' : 'Name') +
+    '</label><input type="text" data-f="name" spellcheck="false" value="' +
+    esc(output.name || '') + '"></div>';
+  if (kind === 'ndi') {
+    html += '<div class="field"><label>Transport</label><select data-f="ndi_mode" disabled>' +
+      '<option value="full" selected>Full NDI</option>' +
+      '<option value="hx">NDI|HX</option></select></div>';
+  }
+  if (shown.includes('device')) {
+    html += '<div class="field"><label>Card</label><input type="number" min="0" data-f="device_index" value="' +
+      (output.device_index || 0) + '"></div>';
+  }
+  if (shown.includes('keying')) {
+    html += '<div class="field"><label>SDI mode</label><select data-f="keying">' +
+      '<option value="">Fill only</option><option value="external">Key + fill</option>' +
+      '<option value="internal">Overlay</option></select></div>';
+    html += '<div class="field"><label>Key level</label><input type="number" min="0" max="255" data-f="key_level" value="' +
+      (options.key_level ?? 255) + '"></div>';
+  }
+  if (shown.includes('display')) {
+    html += '<div class="field"><label>Monitor</label><select data-f="display">' +
+      displayOptions(options.display ?? 0) + '</select></div>';
+  }
+  if (shown.includes('scaling')) {
+    html += '<div class="field"><label>Scaling</label><select data-f="scaling">' +
+      '<option value="fit">Fit (bars)</option><option value="fill">Fill (crop)</option>' +
+      '<option value="stretch">Stretch</option></select></div>';
+  }
+  if (shown.includes('url')) {
+    html += '<div class="field"><label>Stream URL</label><input type="text" data-f="url" spellcheck="false" value="' +
+      esc(options.url || '') + '"></div>';
+  }
+)WEBLINKED";
+inline constexpr char kControlPage_4[] = R"WEBLINKED(  html += '<div class="field"><label>Background</label><select data-f="background">' +
+    '<option value="transparent">Transparent (keep alpha)</option>' +
+    '<option value="colour">Solid colour</option></select></div>';
+  html += '<div class="field" data-bg><label>Colour</label><input type="color" data-f="background_colour" value="' +
+    esc(output.background_colour || '#00b140') + '"></div></div>';
+  if (shown.includes('alpha')) {
+    html += '<label class="check"><input type="checkbox" data-f="alpha"' +
+      (options.alpha ? ' checked' : '') + '> Carry alpha</label>';
+  }
+  if (shown.includes('keying')) {
+    html += '<p class="hint">Fill only is the picture. Key + fill uses two SDI connectors. Overlay uses the card keyer.</p>';
+  }
+  if (kind === 'ndi') {
+    html += '<p class="hint">Receivers see this NDI name. This sender is Full NDI. NDI|HX needs Vizrt\'s HX encoder SDK, which is not in this build.</p>';
+  }
+  if (kind === 'shared') {
+    html += '<p class="hint">Other apps on this PC list this ' + kindLabel('shared') +
+      ' name — Resolume, TouchDesigner and the rest. Stays on this machine. Alpha is kept unless you set a background.</p>';
+  }
+  return html;
+}
+
+function collectDest(node, kind) {
+  const shown = OUTPUT_FIELDS[kind] || [];
+  const field = (name) => node.querySelector('[data-f="' + name + '"]');
+  const body = {
+    kind: kind,
+    name: field('name').value.trim() || kindLabel(kind),
+    device_index: shown.includes('device') ? Number(field('device_index').value) : 0,
+    options: {},
+    background: field('background').value,
+    background_colour: field('background_colour').value,
+  };
+  if (shown.includes('alpha') && field('alpha') && field('alpha').checked) body.options.alpha = true;
+  if (shown.includes('keying') && field('keying').value) {
+    body.options.keying = field('keying').value;
+    body.options.key_level = Number(field('key_level').value);
+  }
+  if (shown.includes('display')) body.options.display = Number(field('display').value);
+  if (shown.includes('scaling')) body.options.scaling = field('scaling').value;
+  if (shown.includes('url') && field('url').value.trim()) body.options.url = field('url').value.trim();
+  return body;
+}
+
+function wireDestEditor(node, output) {
+  const field = (name) => node.querySelector('[data-f="' + name + '"]');
+  if (field('keying')) field('keying').value = (output.options || {}).keying || '';
+  if (field('scaling')) field('scaling').value = (output.options || {}).scaling || 'fit';
+  if (field('background')) field('background').value = output.background === 'colour' ? 'colour' : 'transparent';
+  const paintBg = () => {
+    const opaque = field('background') && field('background').value === 'colour';
+    for (const el of node.querySelectorAll('[data-bg]')) el.hidden = !opaque;
+  };
+  if (field('background')) field('background').onchange = paintBg;
+  paintBg();
+}
+
+function renderDestinations(outputs) {
+  const host = document.getElementById('destinations');
+  const visible = (outputs || []).filter((o) => o.kind !== 'preview');
+  document.getElementById('dest-empty').hidden = visible.length > 0;
+  // Do not rebuild a card someone is editing — the poll would wipe the fields.
+  // Counters stay out of the signature so a rising frame count cannot do it either.
+  if (destEditName && host.childNodes.length) return;
+  const signature = visible.map((o) =>
+    o.name + ':' + (o.enabled ? 1 : 0) + ':' + (o.running ? 1 : 0) + ':' +
+    (o.error || '') + ':' + o.kind).join('|');
+  if (host.dataset.signature === signature) return;
+  host.dataset.signature = signature;
+  host.textContent = '';
+  for (const output of visible) {
+    const card = document.createElement('div');
+    card.className = 'dest';
     const live = output.enabled && output.running;
-    nameCell.innerHTML = '<span class="dot ' + (live ? 'on' : (output.error ? 'bad' : '')) +
-      '" style="display:inline-block;margin-right:6px"></span>' +
-      output.name + '<div class="kind">' + output.kind +
-      (output.device ? ' &middot; ' + output.device : '') +
-      (output.pixel_format ? ' &middot; ' + output.pixel_format : '') +
-      backgroundSwatch(output) + '</div>' +
-      (output.error ? '<div class="err">' + errorHtml(output.error) + '</div>' : '');
-    row.appendChild(nameCell);
-
-    const statCell = document.createElement('td');
-    statCell.className = 'num';
-    const bits = [];
-    if (output.frames !== undefined) bits.push(output.frames + ' f');
-    if (output.receivers !== undefined) bits.push(output.receivers + ' rx');
-    if (output.buffered_frames !== undefined) bits.push('buf ' + output.buffered_frames);
-    if (output.frames_dropped) bits.push(output.frames_dropped + ' drop');
-    statCell.innerHTML = bits.join('<br>');
-    row.appendChild(statCell);
-
-    const actionCell = document.createElement('td');
-    actionCell.style.width = '1%';
-    const button = document.createElement('button');
-    button.textContent = live ? 'Stop' : 'Start';
-    button.onclick = async () => {
-      button.disabled = true;
+    const editing = destEditName === output.name;
+    card.innerHTML =
+      '<header><span class="dot ' + (live ? 'on' : (output.error ? 'bad' : '')) + '"></span>' +
+      '<span class="name">' + esc(output.name) + '</span>' +
+      '<span class="kind">' + esc(kindLabel(output.kind)) + '</span></header>' +
+      '<div class="meta">' + esc(destSummary(output)) + backgroundSwatch(output) + '</div>' +
+      (output.error ? '<p class="err">' + errorHtml(output.error) + '</p>' : '') +
+      (editing ? destEditorFields(output, output.kind) : '') +
+      '<div class="buttons" style="margin-top:10px">' +
+        '<button data-a="toggle">' + (live ? 'Stop' : 'Start') + '</button>' +
+        '<button data-a="edit">' + (editing ? 'Close' : 'Edit') + '</button>' +
+        (editing ? '<button class="primary" data-a="apply">Apply</button>' : '') +
+        '<button class="danger" data-a="remove">Remove</button>' +
+      '</div>';
+    if (editing) wireDestEditor(card, output);
+    card.querySelector('[data-a="toggle"]').onclick = async () => {
       await post('/api/output', { name: output.name, enabled: !live });
-      button.disabled = false;
       refresh();
     };
-    actionCell.appendChild(button);
-    row.appendChild(actionCell);
-
-    body.appendChild(row);
-  }
-  if (!outputs.length) {
-    body.innerHTML = '<tr><td class="kind">no outputs configured</td></tr>';
-  }
-}
-
-// --- settings ---------------------------------------------------------------
-//
-// The engine is the single source of truth: every editor is built from
-// /api/state and every change is a request. Nothing is kept client-side, so two
-// browsers open on the same instance cannot disagree about what is configured.
-
-// Which extra fields each backend actually has. Showing an NDI alpha checkbox
-// against a DeckLink would only invite an operator to set something that is
-// silently ignored.
-const OUTPUT_FIELDS = {
-  ndi: ['alpha'],
-  omt: ['alpha'],
-  decklink: ['device', 'keying'],
-  // No 'keying': aja_output.cpp implements none, so offering the control would
-  // let an operator set a mode that is silently discarded.
-  aja: ['device'],
-  // The display list comes from state.displays, so this offers real monitors
-  // rather than an index the operator has to count out for themselves.
-  screen: ['display', 'scaling'],
-  // Nothing but a name, which every output already has: the consumer picks the
-  // source out of a list by that name, and there is nothing else to choose.
-  // Listed explicitly rather than left to the `|| []` fallback so that "no
-  // fields" reads as a decision instead of an omission.
-  shared: [],
-  preview: ['factor'],
-};
-
-// A <option> per attached display. Falls back to a bare index when the build
-// has no screen backend and state.displays is therefore absent, so the editor
-// still renders rather than throwing halfway through building its HTML.
-function displayOptions(selected) {
-  const displays = lastState.displays || [];
-  if (displays.length === 0) {
-    return '<option value="' + selected + '">display ' + selected + '</option>';
-  }
-  return displays.map((d) => {
-    const label = d.name + ' (' + d.width + 'x' + d.height +
-                  (d.refresh_hz ? ', ' + Math.round(d.refresh_hz) + ' Hz' : '') +
-                  (d.primary ? ', main' : '') + ')';
-    return '<option value="' + d.index + '"' +
-           (d.index === selected ? ' selected' : '') + '>' + label + '</option>';
-  }).join('');
-}
-
-function outputEditor(output, isNew) {
-  const allKinds = lastState.compiled_backends || ['preview'];
-  const options = output.options || {};
-  const node = document.createElement('div');
-  node.className = 'output-editor';
-
-  // The engine refuses to remove the preview or change its kind. Disabling the
-  // two controls here as well is not belt-and-braces: a control that is greyed
-  // out with a line of text next to it states the rule before the operator
-  // acts, where a 409 only reports it afterwards — and this particular mistake
-  // is one nobody thinks to look for, because the edit appears to work.
-  const locked = !isNew && output.kind === 'preview';
-  // A second preview is not addable either, so it is not offered. Falls back to
-  // the full list if filtering emptied it, which would mean a build whose only
-  // backend is the preview — there Add can have nothing to offer, but the
-  // editor must still render rather than throw halfway through its HTML.
-  const addable = allKinds.filter((k) => k !== 'preview');
-  const kinds = isNew && addable.length ? addable : allKinds;
-
-  const kind = isNew ? (kinds.includes('ndi') ? 'ndi' : kinds[0]) : output.kind;
-  node.innerHTML =
-    '<header><span class="name">' + (isNew ? 'New output' : output.name) + '</span></header>' +
-    '<div class="fields">' +
-      '<div class="field"><label>Kind</label>' +
-        '<select data-f="kind"' + (locked ? ' disabled' : '') + '>' +
-        kinds.map((k) => '<option value="' + k + '"' + (k === kind ? ' selected' : '') +
-                         '>' + k + '</option>').join('') +
-      '</select></div>' +
-      '<div class="field"><label>Name</label>' +
-        '<input type="text" data-f="name" spellcheck="false"' +
-        (locked ? ' disabled' : '') + ' value="' +
-        (output.name || '').replace(/"/g, '&quot;') + '"></div>' +
-      '<div class="field" data-when="device"><label>Device index</label>' +
-        '<input type="number" min="0" data-f="device_index" value="' +
-        (output.device_index || 0) + '"></div>' +
-      '<div class="field" data-when="keying"><label>Mode</label><select data-f="keying">' +
-        '<option value="">Fill only</option>' +
-        '<option value="external">Key + fill</option>' +
-        '<option value="internal">Overlay</option></select></div>' +
-      '<div class="field" data-when="keying"><label>Key level</label>' +
-        '<input type="number" min="0" max="255" data-f="key_level" value="' +
-        (options.key_level ?? 255) + '"></div>' +
-      '<div class="field" data-when="factor"><label>Preview scale (1/n)</label>' +
-        '<input type="number" min="1" max="16" data-f="factor" value="' +
-        (options.factor ?? 4) + '"></div>' +
-      '<div class="field" data-when="display"><label>Display</label>' +
-        '<select data-f="display">' + displayOptions(options.display ?? 0) +
-        '</select></div>' +
-      '<div class="field" data-when="scaling"><label>Scaling</label>' +
-        '<select data-f="scaling">' +
-          '<option value="fit">Fit (bars)</option>' +
-          '<option value="fill">Fill (crop)</option>' +
-          '<option value="stretch">Stretch</option>' +
-        '</select></div>' +
-      // Not in OUTPUT_FIELDS: the background is composited by the engine before
-      // a backend sees the frame, so it applies to every kind including the
-      // preview — which is the point, since the preview is how you check it.
-      '<div class="field"><label>Background</label>' +
-        '<select data-f="background">' +
-          '<option value="transparent">Transparent</option>' +
-          '<option value="colour">Solid colour</option>' +
-        '</select></div>' +
-      '<div class="field" data-bg><label>Colour</label>' +
-        '<input type="color" data-f="background_colour" value="' +
-        ((output.background_colour || '#00b140').replace(/"/g, '')) + '"></div>' +
-    '</div>' +
-    '<p class="hint" data-when="display">' +
-      'Paced by the display, not by the video format &mdash; a 50 Hz page on a ' +
-      '60 Hz monitor repeats frames rather than tearing, so presented and ' +
-      'frames are expected to differ.</p>' +
-    '<p class="hint" data-when="keying">' +
-      'Fill only sends the picture with no key. Key + fill puts fill and key on ' +
-      'separate SDI connectors. Overlay composites over the input the card is ' +
-      'already receiving, using its internal keyer. Never run against hardware ' +
-      '&mdash; see docs/04-verification.md.</p>' +
-    '<p class="hint" data-bg>' +
-      'The page is composited over this colour on its way to this output only, ' +
-      'and leaves fully opaque &mdash; for a downstream chroma keyer. Leave it ' +
-      'transparent to send the key itself, which is what a keyed SDI fill or an ' +
-      'NDI feed with alpha wants.</p>' +
-    '<label class="check" data-when="alpha">' +
-      '<input type="checkbox" data-f="alpha"' + (options.alpha ? ' checked' : '') + '>' +
-      'Carry alpha (BGRA, straight)</label>' +
-    (locked ? '<p class="hint">This is the picture on this page, so it stays: ' +
-              'its kind and name are fixed and it cannot be removed. Its scale ' +
-              'and background are still yours to set. To send the page ' +
-              'somewhere, add a second output rather than changing this one.</p>'
-            : '') +
-    '<div class="buttons">' +
-      '<button class="primary" data-a="save">' + (isNew ? 'Add' : 'Apply') + '</button>' +
-      (isNew ? '<button data-a="cancel">Cancel</button>' : '') +
-      (!isNew && !locked ? '<button class="danger" data-a="remove">Remove</button>' : '') +
-    '</div>' +
-    (output.error ? '<p class="err">' + errorHtml(output.error) + '</p>' : '');
-
-  const field = (name) => node.querySelector('[data-f="' + name + '"]');
-  field('keying').value = options.keying || '';
-  field('scaling').value = options.scaling || 'fit';
-  field('background').value = output.background === 'colour' ? 'colour' : 'transparent';
-
-  const applyVisibility = () => {
-    const shown = OUTPUT_FIELDS[field('kind').value] || [];
-    for (const element of node.querySelectorAll('[data-when]')) {
-      element.hidden = !shown.includes(element.dataset.when);
-    }
-    // Separate from the kind-driven fields above: the colour well follows the
-    // background select, not the backend.
-    const opaque = field('background').value === 'colour';
-    for (const element of node.querySelectorAll('[data-bg]')) {
-      element.hidden = !opaque;
-    }
-  };
-  field('kind').onchange = applyVisibility;
-  field('background').onchange = applyVisibility;
-  applyVisibility();
-
-  const collect = () => {
-    const kindValue = field('kind').value;
-    const shown = OUTPUT_FIELDS[kindValue] || [];
-    const body = {
-      kind: kindValue,
-      name: field('name').value.trim() || kindValue,
-      device_index: shown.includes('device') ? Number(field('device_index').value) : 0,
-      options: {},
-      background: field('background').value,
-      // Always sent, transparent or not, so toggling the background off and on
-      // again comes back to the colour that was picked rather than the default.
-      background_colour: field('background_colour').value,
+    card.querySelector('[data-a="edit"]').onclick = () => {
+      destEditName = editing ? null : output.name;
+      host.dataset.signature = '';
+      renderDestinations(lastState.outputs || []);
     };
-    if (shown.includes('alpha') && field('alpha').checked) body.options.alpha = true;
-    if (shown.includes('keying') && field('keying').value) {
-      body.options.keying = field('keying').value;
-      body.options.key_level = Number(field('key_level').value);
+    if (editing) {
+      card.querySelector('[data-a="apply"]').onclick = async () => {
+        const body = collectDest(card, output.kind);
+        if (await post('/api/output/update', { name: output.name, output: body })) {
+          toast('updated ' + body.name);
+          destEditName = body.name;
+          await refresh();
+        }
+      };
     }
-    if (shown.includes('factor')) body.options.factor = Number(field('factor').value);
-    if (shown.includes('display')) body.options.display = Number(field('display').value);
-    if (shown.includes('scaling')) body.options.scaling = field('scaling').value;
-    return body;
-  };
-
-  node.querySelector('[data-a="save"]').onclick = async () => {
-    const body = collect();
-    const result = isNew
-      ? await post('/api/output/add', body)
-      : await post('/api/output/update', { name: output.name, output: body });
-    if (result) {
-      toast(isNew ? 'added ' + body.name : 'updated ' + body.name);
-      await refresh();
-      renderSettings(lastState);
-    }
-  };
-  if (isNew) {
-    node.querySelector('[data-a="cancel"]').onclick = () => renderSettings(lastState);
-  } else if (!locked) {
-    // Bound only when the button was rendered. A querySelector that returns
-    // null here would throw while the page is being built and take every line
-    // after it with it — the failure mode this file is built to avoid.
-    node.querySelector('[data-a="remove"]').onclick = async () => {
+    card.querySelector('[data-a="remove"]').onclick = async () => {
+      if (!confirm("Remove '" + output.name + "'? It goes off air.")) return;
       if (await post('/api/output/remove', { name: output.name })) {
         toast('removed ' + output.name);
+        destEditName = null;
         await refresh();
-        renderSettings(lastState);
       }
     };
+    host.appendChild(card);
   }
-  return node;
 }
 
-function renderSettings(state) {
-  const host = document.getElementById('output-editors');
-  host.innerHTML = '';
-  for (const output of state.outputs || []) {
-    host.appendChild(outputEditor(output, false));
-  }
-  if (!(state.outputs || []).length) {
-    host.innerHTML = '<p class="note">No outputs. The control page needs a preview to show anything.</p>';
-  }
-
-  const settings = state.settings || {};
-  const source = state.source || {};
-  document.getElementById('set-url').value = source.url || '';
-  document.getElementById('set-format-2').value = state.format || '';
-  document.getElementById('set-matrix').value = settings.matrix || 'auto';
-  document.getElementById('set-pacing').value = source.pacing || 'external';
-  document.getElementById('set-popups').value = source.popup_policy || 'navigate';
-  document.getElementById('set-interactive').checked = !!settings.interactive_by_default;
+function addableKinds() {
+  return (lastState.compiled_backends || []).filter((k) => k !== 'preview');
 }
 
-document.getElementById('add-output').onclick = () => {
-  document.getElementById('output-editors').appendChild(outputEditor({}, true));
-};
+function fillAddKindSelect() {
+  const select = document.getElementById('add-kind');
+  const kinds = addableKinds();
+  const signature = kinds.join(',');
+  if (select.dataset.kinds === signature) return;
+  select.dataset.kinds = signature;
+  const current = select.value;
+  select.innerHTML = '<option value="">Choose a type…</option>' +
+    kinds.map((k) => '<option value="' + k + '">' + esc(kindLabel(k)) + '</option>').join('');
+  if (kinds.includes(current)) select.value = current;
+}
+
+function renderAddForm() {
+  const kind = document.getElementById('add-kind').value;
+  const form = document.getElementById('add-form');
+  if (!kind) { form.hidden = true; form.innerHTML = ''; return; }
+  form.hidden = false;
+  let html = '';
+  if (kind === 'ndi') {
+    html += '<div class="field"><label for="add-ndi-name">NDI name</label>' +
+      '<input type="text" id="add-ndi-name" spellcheck="false" placeholder="Scoreboard"></div>';
+    html += '<div class="field"><label for="add-ndi-mode">Transport</label>' +
+      '<select id="add-ndi-mode">' +
+      '<option value="full">Full NDI</option>' +
+      '<option value="hx" disabled>NDI|HX (not in this build)</option>' +
+      '</select></div>';
+    html += '<p class="note">Receivers will list this name. This sender is Full NDI. NDI|HX needs Vizrt\'s HX encoder SDK, which is not compiled in.</p>';
+    html += '<label class="check"><input type="checkbox" id="add-ndi-alpha" checked> Carry alpha</label>';
+  } else if (kind === 'decklink' || kind === 'aja') {
+    html += '<div class="field"><label for="add-name">Name</label>' +
+      '<input type="text" id="add-name" spellcheck="false" placeholder="' + esc(kindLabel(kind)) + '"></div>';
+    html += '<div class="field"><label for="add-device">Card</label>' +
+      '<input type="number" id="add-device" min="0" value="0"></div>';
+    if (kind === 'decklink') {
+      html += '<div class="field"><label for="add-keying">SDI mode</label><select id="add-keying">' +
+)WEBLINKED";
+inline constexpr char kControlPage_5[] = R"WEBLINKED(        '<option value="">Fill only</option><option value="external">Key + fill</option>' +
+        '<option value="internal">Overlay</option></select></div>';
+    }
+  } else if (kind === 'screen') {
+    html += '<div class="field"><label for="add-name">Name</label>' +
+      '<input type="text" id="add-name" spellcheck="false" placeholder="Screen"></div>';
+    html += '<div class="field"><label for="add-display">Monitor</label><select id="add-display">' +
+      displayOptions(0) + '</select></div>';
+  } else if (kind === 'stream') {
+    html += '<div class="field"><label for="add-name">Name</label>' +
+      '<input type="text" id="add-name" spellcheck="false" placeholder="Stream"></div>';
+    html += '<div class="field"><label for="add-url">Stream URL</label>' +
+      '<input type="text" id="add-url" spellcheck="false" placeholder="rtmp://..."></div>';
+  } else {
+    html += '<div class="field"><label for="add-name">Name</label>' +
+      '<input type="text" id="add-name" spellcheck="false" placeholder="' +
+      esc(kindLabel(kind)) + '"></div>';
+    if (kind === 'omt') {
+      html += '<label class="check"><input type="checkbox" id="add-ndi-alpha" checked> Carry alpha</label>';
+    }
+    if (kind === 'shared') {
+      html += '<p class="note">Other apps on this PC list this name as a ' +
+        kindLabel('shared') + ' source. Stays on this machine.</p>';
+    }
+  }
+  html += '<div class="buttons"><button class="primary" id="add-go">Add</button></div>';
+  form.innerHTML = html;
+  document.getElementById('add-go').onclick = () => submitNewDestination(kind);
+}
+
+async function submitNewDestination(kind) {
+  const used = new Set((lastState.outputs || []).map((o) => o.name));
+  const named = (id, fallback) => {
+    const el = document.getElementById(id);
+    const value = el ? el.value.trim() : '';
+    return value || uniqueName(fallback, used);
+  };
+  const body = {
+    kind: kind,
+    name: kind === 'ndi' ? '' : named('add-name', kindLabel(kind)),
+    device_index: 0,
+    options: {},
+    background: 'transparent',
+  };
+  if (kind === 'ndi') {
+    body.name = document.getElementById('add-ndi-name').value.trim();
+    if (!body.name) { toast('give this NDI output a name', true); return; }
+    if (document.getElementById('add-ndi-alpha').checked) body.options.alpha = true;
+  }
+  if (kind === 'omt' && document.getElementById('add-ndi-alpha') &&
+      document.getElementById('add-ndi-alpha').checked) {
+    body.options.alpha = true;
+  }
+  if (kind === 'decklink' || kind === 'aja') {
+    body.device_index = Number(document.getElementById('add-device').value || 0);
+    const keying = document.getElementById('add-keying');
+    if (keying && keying.value) body.options.keying = keying.value;
+  }
+  if (kind === 'screen') {
+    const display = document.getElementById('add-display');
+    body.options.display = display ? Number(display.value) : 0;
+    body.options.scaling = 'fit';
+  }
+  if (kind === 'stream') {
+    const url = document.getElementById('add-url').value.trim();
+    if (url) body.options.url = url;
+  }
+  const result = await post('/api/output/add', body);
+  if (result) {
+    toast('added ' + body.name);
+    destEditName = body.name;
+    document.getElementById('add-kind').value = '';
+    renderAddForm();
+    await refresh();
+  }
+}
 
 document.getElementById('apply-settings').onclick = async () => {
-  // One request rather than five, so the engine reconciles the whole thing and
-  // leaves alone anything that has not actually changed.
+  if (!currentSource) { toast('name a page first', true); return; }
   const source = {
-    id: 'main',
-    url: document.getElementById('set-url').value.trim() || 'about:blank',
-    format: document.getElementById('set-format-2').value.trim(),
+    id: currentSource,
+    url: urlField.value.trim() || 'about:blank',
+    format: currentFormatSpec(),
     matrix: document.getElementById('set-matrix').value,
     pacing: document.getElementById('set-pacing').value,
     popups: document.getElementById('set-popups').value,
@@ -940,48 +1095,28 @@ document.getElementById('apply-settings').onclick = async () => {
     })),
   };
   if (await post('/api/settings/apply', { source })) {
-    toast('settings applied');
+    toast('applied');
     await refresh();
-    renderSettings(lastState);
   }
 };
 
-document.getElementById('save-settings').onclick = async () => {
-  const result = await post('/api/settings/save', {});
-  if (result) toast('saved to ' + result.path);
-};
-
-document.getElementById('reload-settings').onclick = async () => {
-  if (await post('/api/settings/reload', {})) {
-    toast('reloaded from file');
-    await refresh();
-    renderSettings(lastState);
-  }
-};
-
-// --- show files --------------------------------------------------------------
-//
-// Kept on the operator's machine: the page downloads the file and reads it back
-// through a file picker, so nothing is written on the render box and a show can
-// be carried to the next venue on whatever the operator has with them.
-
-function showParts() {
+function showParts(forceBoth) {
+  if (forceBoth) return { tabs: true, outputs: true };
   return {
     tabs: document.getElementById('show-tabs').checked,
     outputs: document.getElementById('show-outputs').checked,
   };
 }
 
-document.getElementById('save-show').onclick = async () => {
-  const parts = showParts();
+async function saveShow(forceBoth) {
+  const parts = showParts(forceBoth);
   if (!parts.tabs && !parts.outputs) {
-    toast('tick tabs, outputs or both', true);
+    toast('tick pages, destinations or both', true);
     return;
   }
   let doc;
   try {
-    doc = await get('/api/show?tabs=' + (parts.tabs ? 1 : 0) +
-                    '&outputs=' + (parts.outputs ? 1 : 0));
+    doc = await get('/api/show?tabs=' + (parts.tabs ? 1 : 0) + '&outputs=' + (parts.outputs ? 1 : 0));
   } catch (err) {
     toast(String(err), true);
     return;
@@ -997,63 +1132,63 @@ document.getElementById('save-show').onclick = async () => {
   link.click();
   link.remove();
   setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-  toast('show saved' + (parts.tabs && parts.outputs ? '' : parts.tabs ? ' (tabs)' : ' (outputs)'));
-};
+  toast('show saved');
+}
 
+let showLoadForceBoth = false;
 const showFileInput = document.getElementById('show-file');
-document.getElementById('load-show').onclick = () => {
+function pickShowFile(forceBoth) {
+  showLoadForceBoth = !!forceBoth;
   showFileInput.value = '';
   showFileInput.click();
-};
+}
+document.getElementById('save-show').onclick = () => saveShow(false);
+document.getElementById('save-show-quick').onclick = () => saveShow(true);
+document.getElementById('load-show').onclick = () => pickShowFile(false);
+document.getElementById('load-show-quick').onclick = () => pickShowFile(true);
 
 showFileInput.addEventListener('change', async () => {
   const file = showFileInput.files && showFileInput.files[0];
   if (!file) return;
   let doc;
-  try {
-    doc = JSON.parse(await file.text());
-  } catch (err) {
-    toast(file.name + ' is not JSON', true);
-    return;
-  }
-  const asked = showParts();
+  try { doc = JSON.parse(await file.text()); }
+  catch (err) { toast(file.name + ' is not JSON', true); return; }
+  const asked = showParts(showLoadForceBoth);
   const has = { tabs: Array.isArray(doc.tabs), outputs: Array.isArray(doc.outputs) };
   const parts = { tabs: asked.tabs && has.tabs, outputs: asked.outputs && has.outputs };
   if (!parts.tabs && !parts.outputs) {
-    toast(file.name + (has.tabs || has.outputs
-      ? ' has none of what is ticked'
-      : ' is not a WebLinked show'), true);
+    toast(file.name + ' is not a WebLinked show', true);
     return;
   }
-
-  // Loading tabs closes the ones the show lacks, and they may be on air — the
-  // same reason removing a single tab asks first.
   if (parts.tabs) {
     const keep = new Set(doc.tabs.map((t) => t && t.id));
     const closing = knownSources.map((s) => s.id).filter((id) => !keep.has(id));
     if (closing.length &&
-        !confirm('Loading these tabs closes ' + closing.map((id) => "'" + id + "'").join(', ') +
-                 '. Their outputs go off air.')) {
+        !confirm('This closes ' + closing.map((id) => "'" + id + "'").join(', ') + '. Their outputs go off air.')) {
       return;
     }
   }
-
   const result = await post('/api/show/load', { show: doc, tabs: parts.tabs, outputs: parts.outputs });
   if (!result) return;
-  const skipped = [];
-  if (asked.tabs && !parts.tabs) skipped.push('it has no tabs');
-  if (asked.outputs && !parts.outputs) skipped.push('it has no outputs');
-  const notes = (result.notes || []).concat(skipped);
-  toast("loaded '" + (doc.name || file.name) + "'" +
-        (parts.tabs && parts.outputs ? '' : parts.tabs ? ' (tabs)' : ' (outputs)') +
-        (notes.length ? ' — ' + notes.join('; ') : ''), notes.length > 0);
+  toast("opened '" + (doc.name || file.name) + "'");
   if (doc.name) document.getElementById('show-name').value = doc.name;
+  destEditName = null;
   await pullSources();
   await refresh();
-  renderSettings(lastState);
 });
 
-// --- diagnostics -------------------------------------------------------------
+document.getElementById('save-settings').onclick = async () => {
+  const result = await post('/api/settings/save', {});
+  if (result) toast('remembered for next launch');
+};
+document.getElementById('reload-settings').onclick = async () => {
+  if (await post('/api/settings/reload', {})) {
+    toast('reloaded remembered setup');
+    destEditName = null;
+    await pullSources();
+    await refresh();
+  }
+};
 
 const logView = document.getElementById('log');
 let logLevelKnown = false;
@@ -1068,42 +1203,32 @@ async function pullLog() {
       logLevelKnown = true;
     }
     const follow = document.getElementById('log-follow').checked;
-    const atBottom = logView.scrollTop + logView.clientHeight >= logView.scrollHeight - 8;
-    logView.innerHTML = (data.lines || [])
-      .map((line) => {
-        // "2026-07-31T09:14:02.113Z WARN message" — the level is the second
-        // field, and colouring by it is the whole point of reading a log.
-        const level = (line.split(' ')[1] || '').toLowerCase();
-        return '<div class="' + level + '">' +
-          line.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</div>';
-      })
-      .join('');
+)WEBLINKED";
+inline constexpr char kControlPage_6[] = R"WEBLINKED(    const atBottom = logView.scrollTop + logView.clientHeight >= logView.scrollHeight - 8;
+    logView.innerHTML = (data.lines || []).map((line) => {
+      const level = (line.split(' ')[1] || '').toLowerCase();
+      return '<div class="' + level + '">' + esc(line) + '</div>';
+    }).join('');
     if (follow && atBottom) logView.scrollTop = logView.scrollHeight;
-
     definitions(document.getElementById('diag-paths'), [
-      ['log file', '<span class="path">' + (data.path || '—') + '</span>'],
-      ['directory', '<span class="path">' + (data.directory || '—') + '</span>'],
-      ['settings', '<span class="path">' + (settingsFilePath || '—') + '</span>'],
+      ['log file', '<span class="path">' + esc(data.path || '—') + '</span>'],
+      ['directory', '<span class="path">' + esc(data.directory || '—') + '</span>'],
+      ['settings', '<span class="path">' + esc(settingsFilePath || '—') + '</span>'],
     ]);
   } catch (err) {
     toast(String(err), true);
   }
 }
-
 document.getElementById('log-refresh').onclick = pullLog;
 document.getElementById('log-level').onchange = async (e) => {
   const result = await post('/api/log/level', { level: e.target.value });
   if (result) { toast('log level ' + result.level); pullLog(); }
 };
-
 document.getElementById('write-report').onclick = async () => {
   const result = await post('/api/diagnostics/report', { reason: 'requested from the control page' });
   if (result) toast('written to ' + result.report);
 };
-
 document.getElementById('download-bundle').onclick = () => {
-  // A plain navigation, so the browser's own download machinery handles it and
-  // the Content-Disposition filename is honoured.
   window.location.href = api('/api/diagnostics/bundle');
 };
 
@@ -1113,10 +1238,25 @@ async function pullSettingsPath() {
     settingsFilePath = data.path || '';
     document.getElementById('settings-path').textContent =
       settingsFilePath + (data.saved ? '' : '  (not saved yet)');
-  } catch (err) {
-    /* the path is a nicety; the page works without it */
-  }
+    const start = data.autostart || {};
+    const row = document.getElementById('autostart-row');
+    const box = document.getElementById('autostart');
+    if (start.supported) {
+      row.hidden = false;
+      if (start.label) document.getElementById('autostart-label').textContent = start.label;
+      box.checked = !!start.enabled;
+    } else {
+      row.hidden = true;
+    }
+  } catch (err) { /* optional */ }
 }
+document.getElementById('autostart').onchange = async (e) => {
+  const wanted = e.target.checked;
+  const result = await post('/api/settings/autostart', { enabled: wanted });
+  if (!result) { e.target.checked = !wanted; return; }
+  e.target.checked = !!result.enabled;
+  toast(result.enabled ? 'will start when you log in' : 'will not start at login');
+};
 
 async function refresh() {
   let state;
@@ -1131,119 +1271,112 @@ async function refresh() {
 
   document.getElementById('version').textContent = 'v' + (state.version || '?');
   document.getElementById('engine-dot').className = 'dot' + (state.running ? ' on' : '');
-  document.getElementById('engine-text').textContent = state.running ? 'running' : 'stopped';
+  document.getElementById('engine-text').textContent =
+    !knownSources.length ? 'no page' : (state.running ? 'on air' : 'stopped');
   document.getElementById('format-pill').textContent = state.format || '—';
 
   if (!urlDirty && state.source) urlField.value = state.source.url || '';
-  if (!formatDirty) formatField.value = state.format || '';
+  if (!formatDirty) syncFormatControls(state.format || '1080p50');
+  if (document.activeElement !== previewFactor) syncPreviewFactor(state);
   if (state.source) {
     muted = !!state.source.audio_muted;
     document.getElementById('mute').textContent = muted ? 'Unmute' : 'Mute';
   }
 
-  renderOutputs(state.outputs || []);
+  lastState = state;
+  renderDestinations(state.outputs || []);
+  fillAddKindSelect();
 
   const pacing = state.pacing || {};
   const audio = state.audio || {};
+  const source = state.source || {};
   definitions(document.getElementById('pacing'), [
     ['ticks', pacing.ticks ?? '—'],
     ['repeated frames', pacing.repeated_frames ?? '—'],
     ['dropped ticks', pacing.dropped_ticks ?? '—'],
     ['last lateness', (pacing.last_lateness_us ?? 0) + ' µs'],
-    ['paints', (state.source && state.source.paints) ?? '—'],
     ['audio', (audio.channels || 0) + ' ch @ ' + (audio.sample_rate || 0) + ' Hz'],
-    ['audio buffer', (audio.buffered_frames ?? 0) + ' samples'],
     ['under / over', (audio.underruns ?? 0) + ' / ' + (audio.overruns ?? 0)],
   ]);
-
-  const source = state.source || {};
-  definitions(document.getElementById('source'), [
-    ['loaded', source.loaded_url ? source.loaded_url.slice(0, 60) : '—'],
-    ['loading', source.loading ? 'yes' : 'no'],
+  definitions(document.getElementById('diag-browser'), [
+    ['loaded', source.loaded_url ? esc(source.loaded_url.slice(0, 60)) : '—'],
     ['pacing', source.pacing || '—'],
     ['console errors', source.console_errors ?? 0],
+    ['last error', esc(source.last_error || '—')],
     ['backends', (state.compiled_backends || []).join(', ')],
-    ['last error', source.last_error || '—'],
-  ]);
-
-  definitions(document.getElementById('diag-browser'), [
     ['popups intercepted', source.popups ?? 0],
-    ['popup policy', source.popup_policy || '—'],
-    ['last popup', source.last_popup_url ? source.last_popup_url.slice(0, 60) : '—'],
-    ['console errors', source.console_errors ?? 0],
-    ['last console error', source.last_console_error || '—'],
-    ['paints', source.paints ?? '—'],
-    ['version', state.version || '—'],
   ]);
 
   const preview = (state.outputs || []).find((o) => o.kind === 'preview');
   if (preview && preview.audio_peak !== undefined) {
-    document.getElementById('audio-meter').style.width =
-      Math.min(100, preview.audio_peak * 100) + '%';
+    document.getElementById('audio-meter').style.width = Math.min(100, preview.audio_peak * 100) + '%';
   }
-
-  lastState = state;
 
   if (pendingView) {
     const wanted = pendingView;
     pendingView = null;
     showView(wanted);
   }
-
-  // The preview arms itself on the first state that says it should. Done here
-  // rather than in the markup because the answer belongs to the engine — one
-  // instance can be launched with --no-interactive and another without, and
-  // every browser opened on the same instance should agree.
   if (!interactiveResolved) {
     interactiveResolved = true;
-    interactiveToggle.checked =
-      !!(state.settings && state.settings.interactive_by_default);
-    // Unconditionally, even when the checkbox already agrees: onchange is what
-    // sends the focus event, and without it the page would look armed and
-    // swallow every keystroke.
-    interactiveToggle.onchange();
+    setInteractive(!!(state.settings && state.settings.interactive_by_default));
   }
 }
 
-// The canvas is declared here, above both the interaction and preview sections,
-// because both use it. It used to live further down with the preview code, which
-// put the interaction listeners in its temporal dead zone: the script threw on
-// load, refresh() was never called, and the whole page sat on "connecting" with
-// an empty preview. Nothing in the UI worked and there was no console error to
-// see unless you were already attached.
 const canvas = document.getElementById('preview');
 const context = canvas.getContext('2d');
-
-// --- interaction -------------------------------------------------------------
-//
-// The preview canvas can forward pointer and keyboard events to the live page,
-// which is the only practical way to dismiss a cookie banner, close a modal or
-// sign in on a machine whose browser you cannot otherwise reach.
-//
-// On by default — the engine decides, and says so in /api/state — because the
-// preview is the only way to reach a page that wants a click before it shows
-// anything, and an operator who has to find a toggle first usually concludes
-// the preview is broken. Still visibly outlined whenever it is armed, because
-// this is the on-air output: a stray click lands on the programme feed.
-// `--no-interactive` restores the old behaviour.
-//
-// Positions are sent normalised. The canvas is a downscaled preview whose CSS
-// size depends on the window, so pixel coordinates here mean nothing to the
-// engine; it scales 0..1 to whatever the current raster is.
-
 const interactiveToggle = document.getElementById('interactive');
 const interactiveHint = document.getElementById('interactive-hint');
+const interactivePop = document.getElementById('interactive-pop');
 let interactive = false;
-/// Set once the engine has told us whether the preview should start armed.
 let interactiveResolved = false;
 
-interactiveToggle.onchange = () => {
-  interactive = interactiveToggle.checked;
+function placePreview(where) {
+  const slots = {
+    live: document.getElementById('preview-slot'),
+    overlay: document.getElementById('overlay-slot'),
+    pop: document.getElementById('pop-slot'),
+  };
+  const slot = slots[where] || slots.live;
+  if (slot && canvas.parentNode !== slot) slot.appendChild(canvas);
+  document.getElementById('preview-overlay').hidden = where !== 'overlay';
+}
+
+function setInteractive(on) {
+  interactiveToggle.checked = on;
+  if (interactivePop) interactivePop.checked = on;
+  interactive = on;
   canvas.classList.toggle('live', interactive);
   interactiveHint.hidden = !interactive;
   sendInput({ type: 'focus', focused: interactive });
   if (interactive) canvas.focus();
+}
+
+function openPreviewWindow() {
+  const url = new URL(location.href);
+  url.searchParams.set('view', 'preview');
+  if (currentSource) url.searchParams.set('source', currentSource);
+  window.open(url.toString(), 'weblinked-preview-' + (currentSource || 'main'),
+    'popup=yes,width=1400,height=860');
+}
+
+document.getElementById('preview-larger').onclick = () => {
+  setInteractive(true);
+  placePreview('overlay');
 };
+document.getElementById('preview-close').onclick = () => placePreview('live');
+document.getElementById('preview-pop').onclick = openPreviewWindow;
+document.getElementById('preview-pop-from-overlay').onclick = openPreviewWindow;
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !document.getElementById('preview-overlay').hidden) {
+    placePreview('live');
+  }
+});
+
+interactiveToggle.onchange = () => setInteractive(interactiveToggle.checked);
+if (interactivePop) {
+  interactivePop.onchange = () => setInteractive(interactivePop.checked);
+}
 
 function eventPosition(e) {
   const box = canvas.getBoundingClientRect();
@@ -1252,8 +1385,6 @@ function eventPosition(e) {
     ny: Math.min(1, Math.max(0, (e.clientY - box.top) / box.height)),
   };
 }
-
-// CEF event flags, from cef_types.h.
 function modifiersOf(e) {
   let m = 0;
   if (e.shiftKey) m |= 1 << 1;
@@ -1265,17 +1396,12 @@ function modifiersOf(e) {
   if (e.buttons & 2) m |= 1 << 6;
   return m;
 }
-
-// Pointer moves are coalesced into one request per animation frame. Sending one
-// HTTP request per mousemove would swamp the control server during a drag.
 let pendingMove = null;
 let moveScheduled = false;
-
 function flushMove() {
   moveScheduled = false;
   if (pendingMove) { sendInput(pendingMove); pendingMove = null; }
 }
-
 async function sendInput(event) {
   try {
     await fetch(api('/api/input'), {
@@ -1283,98 +1409,66 @@ async function sendInput(event) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(event),
     });
-  } catch (err) {
-    /* a dropped input event is not worth a dialog */
-  }
+  } catch (err) { /* ignore */ }
 }
-
 canvas.addEventListener('mousemove', (e) => {
   if (!interactive) return;
-  pendingMove = { type: 'move', ...eventPosition(e), modifiers: modifiersOf(e) };
+)WEBLINKED";
+inline constexpr char kControlPage_7[] = R"WEBLINKED(  pendingMove = { type: 'move', ...eventPosition(e), modifiers: modifiersOf(e) };
   if (!moveScheduled) { moveScheduled = true; requestAnimationFrame(flushMove); }
 });
-
 canvas.addEventListener('mouseleave', (e) => {
   if (!interactive) return;
   sendInput({ type: 'move', ...eventPosition(e), leaving: true, modifiers: 0 });
 });
-
 canvas.addEventListener('mousedown', (e) => {
   if (!interactive) return;
   e.preventDefault();
   canvas.focus();
-  sendInput({ type: 'down', ...eventPosition(e), button: e.button,
-              clicks: e.detail || 1, modifiers: modifiersOf(e) });
+  sendInput({ type: 'down', ...eventPosition(e), button: e.button, clicks: e.detail || 1, modifiers: modifiersOf(e) });
 });
-
 canvas.addEventListener('mouseup', (e) => {
   if (!interactive) return;
   e.preventDefault();
-  sendInput({ type: 'up', ...eventPosition(e), button: e.button,
-              clicks: e.detail || 1, modifiers: modifiersOf(e) });
+  sendInput({ type: 'up', ...eventPosition(e), button: e.button, clicks: e.detail || 1, modifiers: modifiersOf(e) });
 });
-
 canvas.addEventListener('contextmenu', (e) => { if (interactive) e.preventDefault(); });
-
 canvas.addEventListener('wheel', (e) => {
   if (!interactive) return;
   e.preventDefault();
-  // Chromium expects pixel deltas; a wheel line is conventionally about 40.
   const scale = e.deltaMode === 1 ? 40 : 1;
   sendInput({ type: 'wheel', ...eventPosition(e),
-              dx: Math.round(-e.deltaX * scale), dy: Math.round(-e.deltaY * scale),
-              modifiers: modifiersOf(e) });
+    dx: Math.round(-e.deltaX * scale), dy: Math.round(-e.deltaY * scale), modifiers: modifiersOf(e) });
 }, { passive: false });
-
 canvas.addEventListener('keydown', (e) => {
   if (!interactive) return;
   e.preventDefault();
   const modifiers = modifiersOf(e);
   const printable = e.key.length === 1 && !e.ctrlKey && !e.metaKey;
-  // The character has to go on the *keydown* too, not just the CHAR event.
-  // Without it Chromium cannot work out which key was pressed from a bare
-  // virtual-key code and the page sees e.key as "Unidentified" — so a graphic
-  // listening for a specific key never fires. Verified: with it, the page reads
-  // the right e.key and text lands in input fields.
   const character = printable ? e.key.charCodeAt(0) : 0;
   sendInput({ type: 'key', action: 'down', key_code: e.keyCode, character, modifiers });
-
-  // A key that produces text needs a separate CHAR event, or the keystroke
-  // arrives but nothing is typed.
   if (printable) {
-    sendInput({ type: 'key', action: 'char', key_code: e.keyCode,
-                character: e.key.charCodeAt(0), modifiers });
+    sendInput({ type: 'key', action: 'char', key_code: e.keyCode, character: e.key.charCodeAt(0), modifiers });
   } else if (e.key === 'Enter') {
     sendInput({ type: 'key', action: 'char', key_code: 13, character: 13, modifiers });
   }
 });
-
 canvas.addEventListener('keyup', (e) => {
   if (!interactive) return;
   e.preventDefault();
   const printable = e.key.length === 1 && !e.ctrlKey && !e.metaKey;
   sendInput({ type: 'key', action: 'up', key_code: e.keyCode,
-              character: printable ? e.key.charCodeAt(0) : 0,
-              modifiers: modifiersOf(e) });
+    character: printable ? e.key.charCodeAt(0) : 0, modifiers: modifiersOf(e) });
 });
-
-// --- preview ----------------------------------------------------------------
 
 let previewBusy = false;
 let lastPull = 0;
-
 async function pullPreview() {
-  if (previewBusy) return;
-  // A hidden document still gets a picture, just a slow one. Skipping it
-  // entirely is tempting for CPU, but "hidden" covers more than a backgrounded
-  // tab — a kiosk shell, an embedded webview or a screenshot tool can all report
-  // hidden while somebody is looking straight at it, and a confidence monitor
-  // that shows black is worse than useless.
+  if (previewBusy || !currentSource) return;
   const minimumInterval = document.hidden ? 2000 : 0;
   const now = Date.now();
   if (now - lastPull < minimumInterval) return;
   lastPull = now;
-
   previewBusy = true;
   try {
     const response = await fetch(api('/api/preview'));
@@ -1384,14 +1478,11 @@ async function pullPreview() {
     if (!width || !height) return;
     const bytes = new Uint8Array(await response.arrayBuffer());
     if (bytes.length < width * height * 4) return;
-
     if (canvas.width !== width || canvas.height !== height) {
       canvas.width = width;
       canvas.height = height;
     }
     const image = context.createImageData(width, height);
-    // The wire format is BGRA, straight from the frame pipeline. Swapping here
-    // costs nothing and saves a conversion pass in the engine.
     for (let i = 0; i < width * height * 4; i += 4) {
       image.data[i] = bytes[i + 2];
       image.data[i + 1] = bytes[i + 1];
@@ -1399,35 +1490,23 @@ async function pullPreview() {
       image.data[i + 3] = 255;
     }
     context.putImageData(image, 0, 0);
-  } catch (err) {
-    /* a dropped poll is not worth reporting */
-  } finally {
-    previewBusy = false;
-  }
+  } catch (err) { /* drop */ }
+  finally { previewBusy = false; }
 }
-
-// --- the source strip -------------------------------------------------------
-//
-// One chip per pipeline, each with its own small live picture. The strip only
-// appears once there is more than one source: a single-source launch — which is
-// every command-line launch — should look exactly as it did before any of this
-// existed.
 
 let knownSources = [];
 let lastChipPull = 0;
-const chipCanvases = new Map();   // id -> canvas, so a redraw does not lose them
+const chipCanvases = new Map();
 
 function selectSource(id) {
   if (currentSource === id) return;
   currentSource = id;
-  // Every field on the page belongs to the source that was showing, so let the
-  // next poll refill them rather than leaving one source's URL over another's.
   urlDirty = false;
   formatDirty = false;
+  destEditName = null;
   renderSourceChips();
   refresh();
   pullPreview();
-  pullSettingsPath();
 }
 
 function renderSourceChips() {
@@ -1441,13 +1520,11 @@ function renderSourceChips() {
       const chip = document.createElement('button');
       chip.className = 'schip';
       chip.dataset.id = source.id;
-
       const thumb = document.createElement('canvas');
-      thumb.width = 64;
-      thumb.height = 36;
+      thumb.width = 72;
+      thumb.height = 40;
       chipCanvases.set(source.id, thumb);
       chip.appendChild(thumb);
-
       const label = document.createElement('span');
       const name = document.createElement('span');
       name.className = 'sname';
@@ -1458,7 +1535,6 @@ function renderSourceChips() {
       label.appendChild(name);
       label.appendChild(meta);
       chip.appendChild(label);
-
       chip.addEventListener('click', () => selectSource(source.id));
       host.appendChild(chip);
     }
@@ -1468,14 +1544,10 @@ function renderSourceChips() {
   }
 }
 
-/// Paints one chip's thumbnail from that source's own preview output.
 async function pullChip(id) {
   const thumb = chipCanvases.get(id);
   if (!thumb) return;
   try {
-    // Built by hand rather than through api(), because api() deliberately
-    // rewrites the source to the selected one — and the whole point of a chip
-    // is to show a source that is *not* selected.
     let path = '/api/preview?source=' + encodeURIComponent(id);
     if (token) path += '&token=' + encodeURIComponent(token);
     const response = await fetch(path);
@@ -1485,9 +1557,6 @@ async function pullChip(id) {
     if (!width || !height) return;
     const bytes = new Uint8Array(await response.arrayBuffer());
     if (bytes.length < width * height * 4) return;
-
-    // Decoded at full size into an offscreen buffer, then drawn down to the
-    // chip: putImageData ignores any transform, so it cannot scale by itself.
     const buffer = document.createElement('canvas');
     buffer.width = width;
     buffer.height = height;
@@ -1500,146 +1569,133 @@ async function pullChip(id) {
     }
     buffer.getContext('2d').putImageData(image, 0, 0);
     thumb.getContext('2d').drawImage(buffer, 0, 0, thumb.width, thumb.height);
-  } catch (err) {
-    /* a dropped thumbnail is not worth reporting */
-  }
+  } catch (err) { /* drop */ }
 }
 
 async function pullSources() {
   let data;
-  try {
-    data = await get('/api/sources');
-  } catch (err) {
-    return;
-  }
-  knownSources = (data.sources || []).map((s) => ({
-    id: s.id,
-    format: s.format,
-    running: s.running,
-  }));
-
-  // Fall back to the primary if the source this page was driving has gone —
-  // otherwise every request 404s and the page looks broken rather than saying
-  // that somebody removed the feed.
+  try { data = await get('/api/sources'); }
+  catch (err) { return; }
+  knownSources = (data.sources || []).map((s) => ({ id: s.id, format: s.format, running: s.running }));
   if (currentSource && !knownSources.some((s) => s.id === currentSource)) {
-    toast("source '" + currentSource + "' is gone", true);
+    toast("page '" + currentSource + "' is gone", true);
     currentSource = '';
   }
   if (!currentSource && data.primary) currentSource = data.primary;
-
-  // Removing the last tab would leave the process with nothing to render, so
-  // that one stays hidden; the strip itself never does.
-  document.getElementById('remove-source').hidden = knownSources.length < 2;
+  const empty = knownSources.length === 0;
+  document.getElementById('remove-source').hidden = empty;
+  document.getElementById('no-page').hidden = !empty;
+  document.getElementById('view-live').classList.toggle('empty', empty);
+  if (empty && document.getElementById('new-source').hidden) showNewSource(true);
   renderSourceChips();
-
-  // Throttled when hidden rather than skipped, for the same reason pullPreview
-  // is: "hidden" covers a kiosk shell, an embedded webview and a screenshot
-  // tool, all of which may have somebody looking straight at them. Skipping
-  // outright is how every chip came out black the first time this was tried.
   const minimumInterval = document.hidden ? 2000 : 0;
   const now = Date.now();
   if (knownSources.length > 1 && now - lastChipPull >= minimumInterval) {
     lastChipPull = now;
-    // Every source, the selected one included: its chip sits beside the others
-    // and a black square there reads as a fault, not as "you are already
-    // looking at this one".
-    for (const source of knownSources) {
-      pullChip(source.id);
-    }
+    for (const source of knownSources) pullChip(source.id);
   }
 }
 
 document.getElementById('remove-source').addEventListener('click', async () => {
   const id = currentSource;
   if (!id) return;
-  // A confirm, because this stops a feed that may be on air and the button sits
-  // next to Apply.
-  if (!confirm("Stop and remove '" + id + "'? Its outputs go off air.")) return;
-  const removed = await post('/api/sources/remove', { id: id });
-  if (removed) {
-    toast("source '" + id + "' removed");
+  if (!confirm("Remove '" + id + "'? Its outputs go off air.")) return;
+  if (await post('/api/sources/remove', { id: id })) {
+    toast("removed '" + id + "'");
     currentSource = '';
+    destEditName = null;
     await pullSources();
     refresh();
   }
 });
 
 const newSourceForm = document.getElementById('new-source');
-
 function showNewSource(show) {
+  if (!show && knownSources.length === 0) return;
   newSourceForm.hidden = !show;
   document.getElementById('add-source').hidden = show;
+  document.getElementById('ns-cancel').hidden = knownSources.length === 0;
   if (show) {
-    // Pre-filled from what is already running: a second tab is nearly always
-    // the same raster as the first, and typing it again is a chance to get it
-    // wrong.
-    document.getElementById('ns-format').value =
-      document.getElementById('format').value || '1080p50';
-    document.getElementById('ns-url').value = '';
+    const parsed = parseFormat(lastState.format || '1080p50');
+    const raster = parsed.raster === 'custom' ? '1080' : parsed.raster;
+    document.getElementById('ns-raster').value = raster;
+    fillRateSelect(document.getElementById('ns-rate'), raster, parsed.rate);
+)WEBLINKED";
+inline constexpr char kControlPage_8[] = R"WEBLINKED(    document.getElementById('ns-url').value = '';
     document.getElementById('ns-id').value = '';
     document.getElementById('ns-id').focus();
   }
 }
-
 document.getElementById('add-source').addEventListener('click', () => showNewSource(true));
 document.getElementById('ns-cancel').addEventListener('click', () => showNewSource(false));
 newSourceForm.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') showNewSource(false);
 });
-
 newSourceForm.addEventListener('submit', async (event) => {
   event.preventDefault();
-  const id = document.getElementById('ns-id').value.trim();
-  if (!id) return;
+  const raw = document.getElementById('ns-id').value.trim();
+  if (!raw) return;
+  let id = slug(raw);
   if (knownSources.some((s) => s.id === id)) {
-    toast("a tab called '" + id + "' already exists", true);
-    return;
+    let n = 2;
+    while (knownSources.some((s) => s.id === id + n)) n += 1;
+    id = id + n;
   }
-  const source = { id: id, format: document.getElementById('ns-format').value.trim() };
-  // Omitted rather than sent empty, so the server applies its own default.
+  const source = {
+    id: id,
+    format: document.getElementById('ns-raster').value + document.getElementById('ns-rate').value,
+  };
   const url = document.getElementById('ns-url').value.trim();
   if (url) source.url = url;
-
   const created = await post('/api/sources/add', { source: source });
   if (created) {
-    toast("tab '" + id + "' started");
+    toast("page '" + id + "' started");
     showNewSource(false);
     await pullSources();
     selectSource(id);
   }
-  // On failure the form stays open with the values still in it, so a rejected
-  // raster can be corrected rather than retyped.
 });
 
-// Coming back to the page should show a live picture straight away rather than
-// whatever was on screen when it was hidden.
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) { lastPull = 0; pullPreview(); refresh(); }
 });
 
+syncFormatControls('1080p50');
+fillRateSelect(document.getElementById('ns-rate'), '1080', 'p50');
+document.getElementById('ns-raster').onchange = () => {
+  fillRateSelect(document.getElementById('ns-rate'), document.getElementById('ns-raster').value,
+    document.getElementById('ns-rate').value);
+};
+document.getElementById('add-kind').onchange = renderAddForm;
 pullSources();
 refresh();
 pullPreview();
 pullSettingsPath();
 setInterval(refresh, 1000);
 setInterval(pullPreview, 125);
-// Slower than the main preview on purpose: a chip is for recognising a feed,
-// not for judging it, and N sources means N of these requests every tick.
 setInterval(pullSources, 1000);
-// pullLog returns immediately unless the diagnostics view is showing, so this
-// costs nothing while somebody is watching the preview.
 setInterval(pullLog, 2000);
 </script>
-<!--
-  About dialog. Served by this binary from control/about_assets.h, which is
-  generated from stoatworks-backend/about by its sync-about.py - edit it there
-  and re-run the sync, never here. Compiled in for the same reason this page is:
-  the tool must open its own front end with no network beyond this box.
--->
 <script src="/about-data.js" defer></script>
 <script src="/about.js" defer></script>
 </body>
 </html>
 )WEBLINKED";
+}  // namespace detail
+
+inline std::string kControlPage() {
+  std::string out;
+  out.reserve((sizeof(detail::kControlPage_0) - 1) + (sizeof(detail::kControlPage_1) - 1) + (sizeof(detail::kControlPage_2) - 1) + (sizeof(detail::kControlPage_3) - 1) + (sizeof(detail::kControlPage_4) - 1) + (sizeof(detail::kControlPage_5) - 1) + (sizeof(detail::kControlPage_6) - 1) + (sizeof(detail::kControlPage_7) - 1) + (sizeof(detail::kControlPage_8) - 1));
+  out.append(detail::kControlPage_0, sizeof(detail::kControlPage_0) - 1);
+  out.append(detail::kControlPage_1, sizeof(detail::kControlPage_1) - 1);
+  out.append(detail::kControlPage_2, sizeof(detail::kControlPage_2) - 1);
+  out.append(detail::kControlPage_3, sizeof(detail::kControlPage_3) - 1);
+  out.append(detail::kControlPage_4, sizeof(detail::kControlPage_4) - 1);
+  out.append(detail::kControlPage_5, sizeof(detail::kControlPage_5) - 1);
+  out.append(detail::kControlPage_6, sizeof(detail::kControlPage_6) - 1);
+  out.append(detail::kControlPage_7, sizeof(detail::kControlPage_7) - 1);
+  out.append(detail::kControlPage_8, sizeof(detail::kControlPage_8) - 1);
+  return out;
+}
 
 }  // namespace weblinked::assets

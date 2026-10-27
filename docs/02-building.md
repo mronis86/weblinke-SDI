@@ -60,13 +60,28 @@ cmake -S . -B build -DDECKLINK_SDK_DIR="/path/to/Blackmagic DeckLink SDK 12.9"
 ```
 
 Accepted layouts: `<dir>/Mac/include/`, `<dir>/Linux/include/`,
-`<dir>/Win/include/`, a bare directory containing `DeckLinkAPI.h`, or a flattened
-`<dir>/Mac/` (as redistributed inside Unreal's BlackmagicMedia plugin, which is a
-convenient way to build the backend without the SDK archive to hand).
+`<dir>/Win/include/` (with `DeckLinkAPI.h`, or SDK 14+ `DeckLinkAPI.idl` —
+CMake runs `midl` to generate the Windows headers), a bare directory containing
+`DeckLinkAPI.h`, or a flattened `<dir>/Mac/` (as redistributed inside Unreal's
+BlackmagicMedia plugin, which is a convenient way to build the backend without
+the SDK archive to hand).
 
 On macOS and Linux the SDK's `DeckLinkAPIDispatch.cpp` is compiled in; it dlopens
 the installed driver, so the binary still runs on a machine with no Desktop Video
 and simply finds no devices.
+
+On Windows the SDK has no dispatch shim: CMake compiles `DeckLinkAPI_i.c`
+(CLSID/IID definitions, generated from the IDL on SDK 14+) and links
+`ole32`/`oleaut32`, and the backend obtains the iterator with `CoCreateInstance`.
+Install [Desktop Video](https://www.blackmagicdesign.com/support)
+for the runtime driver, then build with:
+
+```powershell
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release `
+  -DDECKLINK_SDK_DIR="D:\Blackmagic_DeckLink_SDK_16.0\Blackmagic DeckLink SDK 16.0"
+cmake --build build
+# Confirm configure printed: WebLinked output backends: ... decklink ...
+```
 
 ### AJA
 
@@ -142,7 +157,10 @@ Ubuntu 24.04 needed only the packages listed below and took one `cmake` and one
 - **The DeckLink SDK and libajantv2 are the only backends a local build adds.**
   NDI and OMT have vendored headers and are compiled in everywhere, including CI.
 - The Windows DeckLink path uses COM (`CoCreateInstance`) rather than the
-  dispatch shim, and that code has still never seen a card.
+  dispatch shim. `FindDeckLinkSDK.cmake` compiles `DeckLinkAPI_i.c` and links
+  `ole32`/`oleaut32`; `decklink_output.cpp` calls `CoInitializeEx` on the
+  output thread before creating the iterator. That path has still never seen a
+  card on Windows, so treat first contact as a soak test.
 - On Windows and Linux one binary is re-executed for every subprocess type, so
   `CefExecuteProcess` runs first in `main()` — there are no helper bundles.
 - Linux needs the usual Chromium runtime libraries (`libnss3`, `libgbm`,

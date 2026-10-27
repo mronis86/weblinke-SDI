@@ -12,6 +12,7 @@ add_executable(weblinked_tests
   test_json.cpp
   test_source_config.cpp
   test_settings_store.cpp
+  test_autostart.cpp
   test_show_file.cpp
   test_osc_server.cpp
   test_mdns_service.cpp
@@ -31,5 +32,10 @@ target_include_directories(weblinked_tests PRIVATE
 )
 
 target_link_libraries(weblinked_tests PRIVATE weblinked_core)
+
+if(MSVC)
+  # Match weblinked_core: CEF builds without exceptions, STL still warns C4530.
+  target_compile_options(weblinked_tests PRIVATE /wd4530)
+endif()
 
 add_test(NAME weblinked_tests COMMAND weblinked_tests)

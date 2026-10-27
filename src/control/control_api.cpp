@@ -9,6 +9,7 @@
 
 #include "control/about_assets.h"
 #include "control/web_assets.h"
+#include "core/autostart.h"
 #include "core/json.h"
 #include "core/settings_store.h"
 #include "core/show_file.h"
@@ -269,7 +270,7 @@ void ControlApi::handleHttp(const HttpServer::Request& request,
 
   if (path == "/" || path == "/index.html") {
     response.contentType = "text/html; charset=utf-8";
-    response.body = assets::kControlPage;
+    response.body = assets::kControlPage();
     return;
   }
 
@@ -278,7 +279,7 @@ void ControlApi::handleHttp(const HttpServer::Request& request,
   // it runs on. See about_assets.h, generated from stoatworks-backend/about.
   if (path == "/about.js" || path == "/about-data.js") {
     response.contentType = "application/javascript; charset=utf-8";
-    response.body = path == "/about.js" ? assets::kAboutScript : assets::kAboutData;
+    response.body = path == "/about.js" ? assets::kAboutScript() : assets::kAboutData();
     return;
   }
 
@@ -286,6 +287,21 @@ void ControlApi::handleHttp(const HttpServer::Request& request,
     // Deliberately still one source's state, not the collection: this is the
     // endpoint every v0.3.0 client polls, and widening its shape would break
     // each of them at once. /api/sources is where the collection lives.
+    // No pages yet is a valid idle process — return enough for the control
+    // page to list backends instead of a 503 that looks like a crash.
+    if (request.param("source", "").empty() && sources_->size() == 0) {
+      json::Value idle = json::Value::object();
+      idle.set("running", json::Value(false));
+      idle.set("version", json::Value(WEBLINKED_VERSION));
+      json::Value compiled = json::Value::array();
+      for (const auto& kind : compiledOutputKinds()) {
+        compiled.push(json::Value(kind));
+      }
+      idle.set("compiled_backends", compiled);
+      idle.set("outputs", json::Value::array());
+      response.json(idle.serialize());
+      return;
+    }
     withRequestSource(request, response, [&](Engine& engine) {
       response.json(engine.state().serialize());
     });
@@ -416,6 +432,12 @@ void ControlApi::handleHttp(const HttpServer::Request& request,
       }
     }
     value.set("discovery", discovery);
+
+    json::Value start = json::Value::object();
+    start.set("supported", json::Value(autostart::supported()));
+    start.set("enabled", json::Value(autostart::enabled()));
+    start.set("label", json::Value(std::string(autostart::label())));
+    value.set("autostart", start);
 
     response.json(value.serialize());
     return;
@@ -798,14 +820,6 @@ void ControlApi::handleHttp(const HttpServer::Request& request,
       response.error(400, "expected {\"id\": \"...\"}");
       return;
     }
-    // Refused rather than allowed: a manager with no sources has no primary, so
-    // every un-addressed request afterwards would 503 and the page would look
-    // broken. Removing the last source is a stop, and stopping is what closing
-    // the window is for.
-    if (sources_->size() <= 1) {
-      response.error(409, "'" + id + "' is the only source — stop WebLinked instead");
-      return;
-    }
     std::string error;
     if (!sources_->remove(id, error)) {
       response.error(404, error);
@@ -841,11 +855,26 @@ void ControlApi::handleHttp(const HttpServer::Request& request,
     return;
   }
 
+  if (path == "/api/settings/autostart") {
+    const bool enable = body["enabled"].asBool(false);
+    std::string error;
+    if (!autostart::setEnabled(enable, &error)) {
+      response.error(500, error);
+      return;
+    }
+    diag::info("autostart %s", enable ? "enabled" : "disabled");
+    json::Value value = json::Value::object();
+    value.set("ok", json::Value(true));
+    value.set("enabled", json::Value(autostart::enabled()));
+    response.json(value.serialize());
+    return;
+  }
+
   if (path == "/api/settings/reload") {
     std::string error;
     const auto file = settings::load(settingsPath_, &error);
-    if (!file || file->sources.empty()) {
-      response.error(404, file ? "the settings file has no sources" : error);
+    if (!file) {
+      response.error(404, error);
       return;
     }
     std::string applyError;
