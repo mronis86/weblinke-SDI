@@ -131,7 +131,9 @@ inline constexpr char kControlPage_0[] = R"WEBLINKED(<!doctype html>
     background: #000; border-radius: 8px; border: 1px solid var(--line);
     object-fit: contain;
   }
-  #preview.live { outline: 2px solid var(--accent); outline-offset: 3px; cursor: crosshair; }
+  /* Arrow, not crosshair: the pointer tip must stay obvious when the preview
+     is enlarged / interactive. */
+  #preview.live { outline: 2px solid var(--accent); outline-offset: 3px; cursor: default; }
   .meter { height: 4px; background: var(--panel-2); border-radius: 2px; overflow: hidden; margin-top: 10px; }
   .meter > div { height: 100%; background: var(--live); width: 0; transition: width .1s linear; }
   .hint, .note { font-size: 11px; color: var(--dim); margin: 8px 0 0; }
@@ -192,9 +194,9 @@ inline constexpr char kControlPage_0[] = R"WEBLINKED(<!doctype html>
   #toast {
     position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
     background: var(--panel-2); border: 1px solid var(--line); color: var(--text);
-    padding: 9px 14px; border-radius: 8px; font-size: 12px; opacity: 0;
 )WEBLINKED";
-inline constexpr char kControlPage_1[] = R"WEBLINKED(    transition: opacity .2s; pointer-events: none; max-width: 80vw; z-index: 20;
+inline constexpr char kControlPage_1[] = R"WEBLINKED(    padding: 9px 14px; border-radius: 8px; font-size: 12px; opacity: 0;
+    transition: opacity .2s; pointer-events: none; max-width: 80vw; z-index: 20;
   }
   #toast.show { opacity: 1; }
   #toast.bad { border-color: var(--bad); color: #ffd9d6; }
@@ -265,7 +267,6 @@ inline constexpr char kControlPage_1[] = R"WEBLINKED(    transition: opacity .2s
       </p>
       <div class="buttons" style="margin-top:10px">
         <button class="primary" id="preview-larger">Larger preview</button>
-        <button id="preview-pop">Pop out window</button>
       </div>
       <label for="preview-factor" style="margin-top:12px">Preview quality</label>
       <select id="preview-factor" style="width:auto">
@@ -466,7 +467,6 @@ inline constexpr char kControlPage_2[] = R"WEBLINKED(      <p class="note">Previ
     <strong>Preview</strong>
     <span class="note">Click and type here to control the page.</span>
     <span class="spacer"></span>
-    <button id="preview-pop-from-overlay">Pop out window</button>
     <button class="primary" id="preview-close">Close</button>
   </div>
   <div id="overlay-slot"></div>
@@ -646,9 +646,9 @@ let lastState = {};
 
 function showView(name) {
   view = name;
+  for (const button of document.querySelectorAll('nav button[data-view]')) {
 )WEBLINKED";
-inline constexpr char kControlPage_3[] = R"WEBLINKED(  for (const button of document.querySelectorAll('nav button[data-view]')) {
-    button.classList.toggle('on', button.dataset.view === name);
+inline constexpr char kControlPage_3[] = R"WEBLINKED(    button.classList.toggle('on', button.dataset.view === name);
   }
   for (const id of ['live', 'advanced', 'diagnostics', 'preview']) {
     const el = document.getElementById('view-' + id);
@@ -837,9 +837,9 @@ function destEditorFields(output, kind) {
     html += '<div class="field"><label>Stream URL</label><input type="text" data-f="url" spellcheck="false" value="' +
       esc(options.url || '') + '"></div>';
   }
+  html += '<div class="field"><label>Background</label><select data-f="background">' +
 )WEBLINKED";
-inline constexpr char kControlPage_4[] = R"WEBLINKED(  html += '<div class="field"><label>Background</label><select data-f="background">' +
-    '<option value="transparent">Transparent (keep alpha)</option>' +
+inline constexpr char kControlPage_4[] = R"WEBLINKED(    '<option value="transparent">Transparent (keep alpha)</option>' +
     '<option value="colour">Solid colour</option></select></div>';
   html += '<div class="field" data-bg><label>Colour</label><input type="color" data-f="background_colour" value="' +
     esc(output.background_colour || '#00b140') + '"></div></div>';
@@ -997,11 +997,11 @@ function renderAddForm() {
       '<input type="number" id="add-device" min="0" value="0"></div>';
     if (kind === 'decklink') {
       html += '<div class="field"><label for="add-keying">SDI mode</label><select id="add-keying">' +
-)WEBLINKED";
-inline constexpr char kControlPage_5[] = R"WEBLINKED(        '<option value="">Fill only</option><option value="external">Key + fill</option>' +
+        '<option value="">Fill only</option><option value="external">Key + fill</option>' +
         '<option value="internal">Overlay</option></select></div>';
     }
-  } else if (kind === 'screen') {
+)WEBLINKED";
+inline constexpr char kControlPage_5[] = R"WEBLINKED(  } else if (kind === 'screen') {
     html += '<div class="field"><label for="add-name">Name</label>' +
       '<input type="text" id="add-name" spellcheck="false" placeholder="Screen"></div>';
     html += '<div class="field"><label for="add-display">Monitor</label><select id="add-display">' +
@@ -1203,11 +1203,11 @@ async function pullLog() {
       logLevelKnown = true;
     }
     const follow = document.getElementById('log-follow').checked;
-)WEBLINKED";
-inline constexpr char kControlPage_6[] = R"WEBLINKED(    const atBottom = logView.scrollTop + logView.clientHeight >= logView.scrollHeight - 8;
+    const atBottom = logView.scrollTop + logView.clientHeight >= logView.scrollHeight - 8;
     logView.innerHTML = (data.lines || []).map((line) => {
       const level = (line.split(' ')[1] || '').toLowerCase();
-      return '<div class="' + level + '">' + esc(line) + '</div>';
+)WEBLINKED";
+inline constexpr char kControlPage_6[] = R"WEBLINKED(      return '<div class="' + level + '">' + esc(line) + '</div>';
     }).join('');
     if (follow && atBottom) logView.scrollTop = logView.scrollHeight;
     definitions(document.getElementById('diag-paths'), [
@@ -1352,21 +1352,11 @@ function setInteractive(on) {
   if (interactive) canvas.focus();
 }
 
-function openPreviewWindow() {
-  const url = new URL(location.href);
-  url.searchParams.set('view', 'preview');
-  if (currentSource) url.searchParams.set('source', currentSource);
-  window.open(url.toString(), 'weblinked-preview-' + (currentSource || 'main'),
-    'popup=yes,width=1400,height=860');
-}
-
 document.getElementById('preview-larger').onclick = () => {
   setInteractive(true);
   placePreview('overlay');
 };
 document.getElementById('preview-close').onclick = () => placePreview('live');
-document.getElementById('preview-pop').onclick = openPreviewWindow;
-document.getElementById('preview-pop-from-overlay').onclick = openPreviewWindow;
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && !document.getElementById('preview-overlay').hidden) {
     placePreview('live');
@@ -1386,7 +1376,11 @@ function eventPosition(e) {
   };
 }
 function modifiersOf(e) {
+  // Matches cef_event_flags_t so Chromium sees the same shift/caps state the
+  // browser did — without CAPS_LOCK_ON, CHAR events built from VK codes
+  // tended to land as capitals only.
   let m = 0;
+  if (e.getModifierState && e.getModifierState('CapsLock')) m |= 1 << 0;
   if (e.shiftKey) m |= 1 << 1;
   if (e.ctrlKey)  m |= 1 << 2;
   if (e.altKey)   m |= 1 << 3;
@@ -1413,8 +1407,7 @@ async function sendInput(event) {
 }
 canvas.addEventListener('mousemove', (e) => {
   if (!interactive) return;
-)WEBLINKED";
-inline constexpr char kControlPage_7[] = R"WEBLINKED(  pendingMove = { type: 'move', ...eventPosition(e), modifiers: modifiersOf(e) };
+  pendingMove = { type: 'move', ...eventPosition(e), modifiers: modifiersOf(e) };
   if (!moveScheduled) { moveScheduled = true; requestAnimationFrame(flushMove); }
 });
 canvas.addEventListener('mouseleave', (e) => {
@@ -1424,7 +1417,8 @@ canvas.addEventListener('mouseleave', (e) => {
 canvas.addEventListener('mousedown', (e) => {
   if (!interactive) return;
   e.preventDefault();
-  canvas.focus();
+)WEBLINKED";
+inline constexpr char kControlPage_7[] = R"WEBLINKED(  canvas.focus();
   sendInput({ type: 'down', ...eventPosition(e), button: e.button, clicks: e.detail || 1, modifiers: modifiersOf(e) });
 });
 canvas.addEventListener('mouseup', (e) => {
@@ -1444,11 +1438,16 @@ canvas.addEventListener('keydown', (e) => {
   if (!interactive) return;
   e.preventDefault();
   const modifiers = modifiersOf(e);
-  const printable = e.key.length === 1 && !e.ctrlKey && !e.metaKey;
+  // e.key already reflects Shift/Caps (so 'a' vs 'A', '2' vs '@'). For CHAR
+  // events Chromium expects windows_key_code to be that character — sending
+  // the VK keyCode (always uppercase letter / unshifted digit) made typing
+  // stick in ALL CAPS and broke Shift+number symbols.
+  const printable = e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey;
   const character = printable ? e.key.charCodeAt(0) : 0;
-  sendInput({ type: 'key', action: 'down', key_code: e.keyCode, character, modifiers });
+  const vk = e.keyCode || e.which || 0;
+  sendInput({ type: 'key', action: 'down', key_code: vk, character: 0, modifiers });
   if (printable) {
-    sendInput({ type: 'key', action: 'char', key_code: e.keyCode, character: e.key.charCodeAt(0), modifiers });
+    sendInput({ type: 'key', action: 'char', key_code: character, character, modifiers });
   } else if (e.key === 'Enter') {
     sendInput({ type: 'key', action: 'char', key_code: 13, character: 13, modifiers });
   }
@@ -1456,9 +1455,9 @@ canvas.addEventListener('keydown', (e) => {
 canvas.addEventListener('keyup', (e) => {
   if (!interactive) return;
   e.preventDefault();
-  const printable = e.key.length === 1 && !e.ctrlKey && !e.metaKey;
-  sendInput({ type: 'key', action: 'up', key_code: e.keyCode,
-    character: printable ? e.key.charCodeAt(0) : 0, modifiers: modifiersOf(e) });
+  const vk = e.keyCode || e.which || 0;
+  sendInput({ type: 'key', action: 'up', key_code: vk, character: 0,
+    modifiers: modifiersOf(e) });
 });
 
 let previewBusy = false;
@@ -1620,13 +1619,13 @@ function showNewSource(show) {
     const raster = parsed.raster === 'custom' ? '1080' : parsed.raster;
     document.getElementById('ns-raster').value = raster;
     fillRateSelect(document.getElementById('ns-rate'), raster, parsed.rate);
-)WEBLINKED";
-inline constexpr char kControlPage_8[] = R"WEBLINKED(    document.getElementById('ns-url').value = '';
+    document.getElementById('ns-url').value = '';
     document.getElementById('ns-id').value = '';
     document.getElementById('ns-id').focus();
   }
 }
-document.getElementById('add-source').addEventListener('click', () => showNewSource(true));
+)WEBLINKED";
+inline constexpr char kControlPage_8[] = R"WEBLINKED(document.getElementById('add-source').addEventListener('click', () => showNewSource(true));
 document.getElementById('ns-cancel').addEventListener('click', () => showNewSource(false));
 newSourceForm.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') showNewSource(false);

@@ -268,6 +268,9 @@ void BrowserSource::sendInput(const InputEvent& event, int x, int y) {
       // platform scancode would be worse than supplying none.
       key.native_key_code = 0;
       key.is_system_key = 0;
+      // CHAR events carry the already-shifted glyph in `character` (and, from
+      // the control page, in windows_key_code too). Leave unmodified equal —
+      // inventing a base key from VK alone reintroduced ALL-CAPS typing.
       key.character = static_cast<char16_t>(event.character);
       key.unmodified_character = static_cast<char16_t>(event.character);
       key.focus_on_editable_field = 0;
