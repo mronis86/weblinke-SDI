@@ -139,9 +139,16 @@ bool parseInputEvent(const json::Value& value, InputEvent& out,
     out.focused = value["focused"].asBool(true);
     return true;
   }
+  if (type == "exit_fullscreen" || type == "escape") {
+    // exit_fullscreen: leave HTML fullscreen + send Escape.
+    // escape: same path — operators ask for either name.
+    out.type = InputEvent::Type::kExitFullscreen;
+    return true;
+  }
 
   response.error(400, "unknown input event type '" + type +
-                          "' — expected move, down, up, wheel, key or focus");
+                          "' — expected move, down, up, wheel, key, focus, "
+                          "exit_fullscreen or escape");
   return false;
 }
 

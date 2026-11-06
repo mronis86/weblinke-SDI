@@ -267,9 +267,11 @@ inline constexpr char kControlPage_1[] = R"WEBLINKED(    padding: 12px 16px 16px
       <p id="interactive-hint" class="hint" hidden>
         Clicks and typing go to the live page.
         <strong>This is the on-air picture.</strong>
+        Esc (or <em>Exit page fullscreen</em>) leaves a page that went fullscreen.
       </p>
       <div class="buttons" style="margin-top:10px">
         <button class="primary" id="preview-larger">Larger preview</button>
+        <button type="button" id="preview-exit-fs" title="Leave the page's own fullscreen (sends Esc)">Exit page fullscreen</button>
       </div>
       <label for="preview-factor" style="margin-top:12px">Preview quality</label>
       <select id="preview-factor" style="width:auto">
@@ -387,15 +389,15 @@ inline constexpr char kControlPage_1[] = R"WEBLINKED(    padding: 12px 16px 16px
         <label for="set-pacing">Who drives frames</label>
         <select id="set-pacing">
           <option value="external">WebLinked (recommended)</option>
-          <option value="internal">Chromium timer</option>
+)WEBLINKED";
+inline constexpr char kControlPage_2[] = R"WEBLINKED(          <option value="internal">Chromium timer</option>
         </select>
       </div>
       <div class="field">
         <label for="set-popups">Links that want a new tab</label>
         <select id="set-popups">
           <option value="navigate">Load here</option>
-)WEBLINKED";
-inline constexpr char kControlPage_2[] = R"WEBLINKED(          <option value="block">Block</option>
+          <option value="block">Block</option>
         </select>
       </div>
       <label class="check">
@@ -468,8 +470,9 @@ inline constexpr char kControlPage_2[] = R"WEBLINKED(          <option value="bl
 <div id="preview-overlay" hidden>
   <div class="bar">
     <strong>Preview</strong>
-    <span class="note">Click and type here to control the page.</span>
+    <span class="note">Click and type here to control the page. Esc exits page fullscreen.</span>
     <span class="spacer"></span>
+    <button type="button" id="preview-exit-fs-overlay" title="Leave the page's own fullscreen (sends Esc)">Exit page fullscreen</button>
     <button class="primary" id="preview-close">Close</button>
   </div>
   <div id="overlay-slot"></div>
@@ -628,7 +631,8 @@ function currentFormatSpec() {
 function syncFormatControls(text) {
   const parsed = parseFormat(text || '1080p50');
   const rasterEl = document.getElementById('format-raster');
-  const rateEl = document.getElementById('format-rate');
+)WEBLINKED";
+inline constexpr char kControlPage_3[] = R"WEBLINKED(  const rateEl = document.getElementById('format-rate');
   const customEl = document.getElementById('format');
   rasterEl.value = parsed.raster;
   const custom = parsed.raster === 'custom';
@@ -640,8 +644,7 @@ function syncFormatControls(text) {
 
 function definitions(target, pairs) {
   target.innerHTML = pairs
-)WEBLINKED";
-inline constexpr char kControlPage_3[] = R"WEBLINKED(    .map(([key, value]) => '<dt>' + key + '</dt><dd>' + value + '</dd>')
+    .map(([key, value]) => '<dt>' + key + '</dt><dd>' + value + '</dd>')
     .join('');
 }
 
@@ -829,7 +832,8 @@ function destEditorFields(output, kind) {
   }
   if (shown.includes('display')) {
     html += '<div class="field"><label>Monitor</label><select data-f="display">' +
-      displayOptions(options.display ?? 0) + '</select></div>';
+)WEBLINKED";
+inline constexpr char kControlPage_4[] = R"WEBLINKED(      displayOptions(options.display ?? 0) + '</select></div>';
   }
   if (shown.includes('scaling')) {
     html += '<div class="field"><label>Scaling</label><select data-f="scaling">' +
@@ -837,8 +841,7 @@ function destEditorFields(output, kind) {
       '<option value="stretch">Stretch</option></select></div>';
   }
   if (shown.includes('url')) {
-)WEBLINKED";
-inline constexpr char kControlPage_4[] = R"WEBLINKED(    html += '<div class="field"><label>Stream URL</label><input type="text" data-f="url" spellcheck="false" value="' +
+    html += '<div class="field"><label>Stream URL</label><input type="text" data-f="url" spellcheck="false" value="' +
       esc(options.url || '') + '"></div>';
   }
   html += '<div class="field"><label>Background</label><select data-f="background">' +
@@ -994,13 +997,13 @@ function renderAddForm() {
     html += '<p class="note">Receivers will list this name. This sender is Full NDI. NDI|HX needs Vizrt\'s HX encoder SDK, which is not compiled in.</p>';
     html += '<label class="check"><input type="checkbox" id="add-ndi-alpha" checked> Carry alpha</label>';
   } else if (kind === 'decklink' || kind === 'aja') {
-    html += '<div class="field"><label for="add-name">Name</label>' +
+)WEBLINKED";
+inline constexpr char kControlPage_5[] = R"WEBLINKED(    html += '<div class="field"><label for="add-name">Name</label>' +
       '<input type="text" id="add-name" spellcheck="false" placeholder="' + esc(kindLabel(kind)) + '"></div>';
     html += '<div class="field"><label for="add-device">Card</label>' +
       '<input type="number" id="add-device" min="0" value="0"></div>';
     if (kind === 'decklink') {
-)WEBLINKED";
-inline constexpr char kControlPage_5[] = R"WEBLINKED(      html += '<div class="field"><label for="add-keying">SDI mode</label><select id="add-keying">' +
+      html += '<div class="field"><label for="add-keying">SDI mode</label><select id="add-keying">' +
         '<option value="">Fill only</option><option value="external">Key + fill</option>' +
         '<option value="internal">Overlay</option></select></div>';
     }
@@ -1193,7 +1196,8 @@ document.getElementById('reload-settings').onclick = async () => {
   }
 };
 
-const logView = document.getElementById('log');
+)WEBLINKED";
+inline constexpr char kControlPage_6[] = R"WEBLINKED(const logView = document.getElementById('log');
 let logLevelKnown = false;
 let settingsFilePath = '';
 
@@ -1205,8 +1209,7 @@ async function pullLog() {
       document.getElementById('log-level').value = data.level || 'info';
       logLevelKnown = true;
     }
-)WEBLINKED";
-inline constexpr char kControlPage_6[] = R"WEBLINKED(    const follow = document.getElementById('log-follow').checked;
+    const follow = document.getElementById('log-follow').checked;
     const atBottom = logView.scrollTop + logView.clientHeight >= logView.scrollHeight - 8;
     logView.innerHTML = (data.lines || []).map((line) => {
       const level = (line.split(' ')[1] || '').toLowerCase();
@@ -1360,11 +1363,37 @@ document.getElementById('preview-larger').onclick = () => {
   placePreview('overlay');
 };
 document.getElementById('preview-close').onclick = () => placePreview('live');
+
+function exitContentFullscreen() {
+  // Leave Element.requestFullscreen (and page overlays that listen for Esc).
+  sendInput({ type: 'exit_fullscreen' });
+}
+document.getElementById('preview-exit-fs').onclick = () => {
+  if (!interactive) setInteractive(true);
+  exitContentFullscreen();
+  toast('sent Esc / exit fullscreen to the page');
+};
+document.getElementById('preview-exit-fs-overlay').onclick = () => {
+  if (!interactive) setInteractive(true);
+  exitContentFullscreen();
+  toast('sent Esc / exit fullscreen to the page');
+};
+
+// Capture so Esc reaches the page before anything else (e.g. closing the
+// enlarged preview). When interactive, Esc exits content fullscreen; Close
+// still leaves the enlarged preview. When not interactive, Esc closes overlay.
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && !document.getElementById('preview-overlay').hidden) {
+  if (e.key !== 'Escape') return;
+  if (interactive) {
+    e.preventDefault();
+    e.stopPropagation();
+    exitContentFullscreen();
+    return;
+  }
+  if (!document.getElementById('preview-overlay').hidden) {
     placePreview('live');
   }
-});
+}, true);
 
 interactiveToggle.onchange = () => setInteractive(interactiveToggle.checked);
 if (interactivePop) {
@@ -1373,7 +1402,8 @@ if (interactivePop) {
 
 function eventPosition(e) {
   // Map pointer → normalised page coords through the *painted* frame, not the
-  // CSS box. With object-fit:contain the bitmap is letterboxed inside the
+)WEBLINKED";
+inline constexpr char kControlPage_7[] = R"WEBLINKED(  // CSS box. With object-fit:contain the bitmap is letterboxed inside the
   // element; using the full box made enlarged-preview hits drift (often far
   // sideways) relative to the cursor, especially under DPI / non-16:9 slots.
   const box = canvas.getBoundingClientRect();
@@ -1403,8 +1433,7 @@ function modifiersOf(e) {
   if (e.altKey)   m |= 1 << 3;
   if (e.metaKey)  m |= 1 << 7;
   if (e.buttons & 1) m |= 1 << 4;
-)WEBLINKED";
-inline constexpr char kControlPage_7[] = R"WEBLINKED(  if (e.buttons & 4) m |= 1 << 5;
+  if (e.buttons & 4) m |= 1 << 5;
   if (e.buttons & 2) m |= 1 << 6;
   return m;
 }
@@ -1585,7 +1614,8 @@ async function pullChip(id) {
     }
     buffer.getContext('2d').putImageData(image, 0, 0);
     thumb.getContext('2d').drawImage(buffer, 0, 0, thumb.width, thumb.height);
-  } catch (err) { /* drop */ }
+)WEBLINKED";
+inline constexpr char kControlPage_8[] = R"WEBLINKED(  } catch (err) { /* drop */ }
 }
 
 async function pullSources() {
@@ -1616,8 +1646,7 @@ document.getElementById('remove-source').addEventListener('click', async () => {
   const id = currentSource;
   if (!id) return;
   if (!confirm("Remove '" + id + "'? Its outputs go off air.")) return;
-)WEBLINKED";
-inline constexpr char kControlPage_8[] = R"WEBLINKED(  if (await post('/api/sources/remove', { id: id })) {
+  if (await post('/api/sources/remove', { id: id })) {
     toast("removed '" + id + "'");
     currentSource = '';
     destEditName = null;

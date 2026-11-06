@@ -255,9 +255,11 @@
       <p id="interactive-hint" class="hint" hidden>
         Clicks and typing go to the live page.
         <strong>This is the on-air picture.</strong>
+        Esc (or <em>Exit page fullscreen</em>) leaves a page that went fullscreen.
       </p>
       <div class="buttons" style="margin-top:10px">
         <button class="primary" id="preview-larger">Larger preview</button>
+        <button type="button" id="preview-exit-fs" title="Leave the page's own fullscreen (sends Esc)">Exit page fullscreen</button>
       </div>
       <label for="preview-factor" style="margin-top:12px">Preview quality</label>
       <select id="preview-factor" style="width:auto">
@@ -455,8 +457,9 @@
 <div id="preview-overlay" hidden>
   <div class="bar">
     <strong>Preview</strong>
-    <span class="note">Click and type here to control the page.</span>
+    <span class="note">Click and type here to control the page. Esc exits page fullscreen.</span>
     <span class="spacer"></span>
+    <button type="button" id="preview-exit-fs-overlay" title="Leave the page's own fullscreen (sends Esc)">Exit page fullscreen</button>
     <button class="primary" id="preview-close">Close</button>
   </div>
   <div id="overlay-slot"></div>
@@ -1343,11 +1346,37 @@ document.getElementById('preview-larger').onclick = () => {
   placePreview('overlay');
 };
 document.getElementById('preview-close').onclick = () => placePreview('live');
+
+function exitContentFullscreen() {
+  // Leave Element.requestFullscreen (and page overlays that listen for Esc).
+  sendInput({ type: 'exit_fullscreen' });
+}
+document.getElementById('preview-exit-fs').onclick = () => {
+  if (!interactive) setInteractive(true);
+  exitContentFullscreen();
+  toast('sent Esc / exit fullscreen to the page');
+};
+document.getElementById('preview-exit-fs-overlay').onclick = () => {
+  if (!interactive) setInteractive(true);
+  exitContentFullscreen();
+  toast('sent Esc / exit fullscreen to the page');
+};
+
+// Capture so Esc reaches the page before anything else (e.g. closing the
+// enlarged preview). When interactive, Esc exits content fullscreen; Close
+// still leaves the enlarged preview. When not interactive, Esc closes overlay.
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && !document.getElementById('preview-overlay').hidden) {
+  if (e.key !== 'Escape') return;
+  if (interactive) {
+    e.preventDefault();
+    e.stopPropagation();
+    exitContentFullscreen();
+    return;
+  }
+  if (!document.getElementById('preview-overlay').hidden) {
     placePreview('live');
   }
-});
+}, true);
 
 interactiveToggle.onchange = () => setInteractive(interactiveToggle.checked);
 if (interactivePop) {

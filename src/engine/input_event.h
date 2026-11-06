@@ -22,6 +22,10 @@ struct InputEvent {
     kWheel,
     kKey,
     kFocus,
+    /// Leave HTML/content fullscreen in the offscreen browser (and synthesize
+    /// Escape). Used when a page called requestFullscreen and the operator
+    /// needs out without closing the control preview.
+    kExitFullscreen,
   };
 
   enum class Button {

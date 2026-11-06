@@ -282,6 +282,32 @@ void BrowserSource::sendInput(const InputEvent& event, int x, int y) {
       onUiThread([browser, focused]() { browser->GetHost()->SetFocus(focused); });
       break;
     }
+    case InputEvent::Type::kExitFullscreen: {
+      // Content fullscreen (Element.requestFullscreen) is separate from our
+      // screen output. Escape alone is not always enough in windowless CEF, so
+      // ExitFullscreen first, then synthesize Escape for page-level overlays.
+      onUiThread([browser]() {
+        CefRefPtr<CefBrowserHost> host = browser->GetHost();
+        if (host->IsFullscreen()) {
+          host->ExitFullscreen(/*will_cause_resize=*/false);
+        }
+        CefKeyEvent key;
+        key.modifiers = 0;
+        key.windows_key_code = 0x1B;  // VK_ESCAPE
+        key.native_key_code = 0;
+        key.is_system_key = 0;
+        key.character = 27;
+        key.unmodified_character = 27;
+        key.focus_on_editable_field = 0;
+        key.type = KEYEVENT_RAWKEYDOWN;
+        host->SendKeyEvent(key);
+        key.type = KEYEVENT_KEYUP;
+        key.character = 0;
+        key.unmodified_character = 0;
+        host->SendKeyEvent(key);
+      });
+      break;
+    }
   }
 }
 
